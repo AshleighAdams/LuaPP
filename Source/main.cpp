@@ -14,13 +14,12 @@ int main(int argc, char** argv)
 		Lua::State state;
 		
 		state.LoadStandardLibary();
-		state.DoString("test = {a = 5}");
+		state.DoString("test = {42, 1337, 'Hello, world'}", "test");
 		
-		state["test"]["a"] = 10;
-		cout << state["test"]["a"].ToString() << "\n";
-		
-		state["test"]["a"] = "Hello, world";
-		cout << state["test"]["a"].ToString() << "\n";
+		for(auto pair : state["test"].ipairs())
+		{
+			cout << pair.first.ToString() << " = " << pair.second.GetTypeName() << ": " << pair.second.ToString() << "\n";
+		}
 	}
 	catch(Lua::Exception ex)
 	{

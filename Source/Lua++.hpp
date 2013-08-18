@@ -86,6 +86,7 @@ namespace Lua
 		template<typename T>
 		void operator=(const T& val);
 		
+		// for table
 		template<typename T>
 		Variable operator[](const T& val);
 		
@@ -97,6 +98,11 @@ namespace Lua
 		string GetTypeName();
 		void ToStack();
 		
+		bool IsNil()
+		{
+			return _Type == Type::Nil;
+		}
+		
 		template<typename T>
 		T As();
 		
@@ -105,8 +111,13 @@ namespace Lua
 		
 		string ToString();
 		
+		// functions
 		template<typename... Args>
 		std::list<Variable> operator()(Args... args);
+		
+		// tables
+		std::list<std::pair<Variable, Variable>> pairs();
+		std::list<std::pair<Variable, Variable>> ipairs();
 	};
 	
 	class State
@@ -445,6 +456,43 @@ namespace Lua
 		ret.SetKey(key, this);
 		
 		lua_pop(*_State, 1);
+		return ret;
+	}
+	
+	std::list<std::pair<Variable, Variable>> Variable::pairs()
+	{
+		if(GetType() != Type::Table)
+		{
+			throw RuntimeError("Attempted to pairs '" + _Key->ToString() + "' (a " + GetTypeName() + " value)");
+			return {};
+		}
+		
+		return {};
+	}
+	
+	std::list<std::pair<Variable, Variable>> Variable::ipairs()
+	{
+		if(GetType() != Type::Table)
+		{
+			throw RuntimeError("Attempted to ipairs '" + _Key->ToString() + "' (a " + GetTypeName() + " value)");
+			return {};
+		}
+		
+		int i = 1;
+		Variable& self = *this;
+		std::list<std::pair<Variable, Variable>> ret;
+		
+		while(true)
+		{
+			Variable var = self[i];
+			
+			if(var.IsNil())
+				break;
+			
+			ret.push_back({Variable(_State, i), var});
+			i++;
+		}
+		
 		return ret;
 	}
 	

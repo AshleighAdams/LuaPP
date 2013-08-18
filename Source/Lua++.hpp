@@ -96,6 +96,7 @@ namespace Lua
 		
 		template<typename T>
 		void operator=(const T& val);
+		void operator=(Variable& val);
 		void operator=(NewTable_t t);
 		
 		// for table
@@ -166,6 +167,11 @@ namespace Lua
 		{
 			if(luaL_loadbuffer(_State, code.c_str(), code.length(), name.c_str()))
 				throw CompileError(lua_tostring(_State, -1));
+		}
+		
+		Variable GenerateFunction(CFunction func)
+		{
+			return Variable(this, (CFunction)func);
 		}
 		
 		Variable operator[](const string& key)
@@ -532,9 +538,37 @@ namespace Lua
 		}
 		else
 		{
+			if(_KeyTo == nullptr)
+				throw RuntimeError("_KeyTo is null!");
+				
 			_KeyTo->Push();
 			_Key->Push();
 			tmp.Push();
+			
+			lua_settable(*_State, -3);
+			lua_pop(*_State, 1);
+		}
+	}
+	
+	void Variable::operator=(Variable& val)
+	{
+		this->_IsReference = val._IsReference;
+		this->_Type = val._Type;
+		this->Data = val.Data;
+		
+		if(_Global)
+		{
+			this->Push();
+			lua_setglobal(*_State, _Key->As<string>().c_str()); // TODO: use Variable to index
+		}
+		else
+		{
+			if(_KeyTo == nullptr)
+				throw RuntimeError("_KeyTo is null!");
+				
+			_KeyTo->Push();
+			_Key->Push();
+			this->Push();
 			
 			lua_settable(*_State, -3);
 			lua_pop(*_State, 1);

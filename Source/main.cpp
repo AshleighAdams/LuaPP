@@ -39,14 +39,13 @@ int main(int argc, char** argv)
 	try
 	{
 		Lua::State state;
-		
 		state.LoadStandardLibary();
 		
 		
-		Lua::Variable func(&state, TestFunc);
-		func("hi", 54, true);
+		Lua::Variable func = state.GenerateFunction(TestFunc);
 		
-		//state.DoString("", "test");
+		state["test"] = func;
+		state.DoString("test('hello, world', 42, false)", "test");
 	}
 	catch(Lua::Exception ex)
 	{

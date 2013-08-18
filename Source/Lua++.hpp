@@ -379,9 +379,10 @@ namespace Lua
 		
 		Variable* key = new Variable(_State, val);
 		
-		// push key
 		// push table
-		// return
+		// push key
+		// tell lua to index the table -2, with -1
+		
 		
 		this->ToStack();
 		key->ToStack();
@@ -391,6 +392,7 @@ namespace Lua
 		Variable ret = Variable(_State); // takes it from the stack
 		ret.SetKey(key);
 		
+		lua_pop(*_State, 1);
 		return ret;
 	}
 	

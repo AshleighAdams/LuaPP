@@ -16,7 +16,7 @@ int main(int argc, char** argv)
 		state.LoadStandardLibary();
 		state.DoString("test = {a = 5}");
 		
-		auto var = state["test"]["a"];
+		auto var = state["test"]["a"]["b"];
 		
 		cout << var.GetTypeName() << ": " << var.As<double>() << "\n";
 		

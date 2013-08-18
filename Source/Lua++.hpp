@@ -5,6 +5,8 @@
 #include <string>
 #include <exception>
 #include <list>
+#include <memory>
+#include <sstream>
 
 // lua
 #include <lua.hpp>
@@ -54,10 +56,10 @@ namespace Lua
 	class Variable
 	{
 	public:
-		Type      _Type;
-		State*    _State;
-		Variable* _Key;
-		bool      _Global;
+		Type                       _Type;
+		State*                     _State;
+		std::shared_ptr<Variable>  _Key;
+		bool                       _Global;
 		
 		bool _IsReference;
 		struct {
@@ -88,7 +90,7 @@ namespace Lua
 		
 		~Variable();
 	
-		void SetKey(Variable* key);
+		void SetKey(std::shared_ptr<Variable> key);
 		
 		Type GetType();
 		string GetTypeName();
@@ -100,10 +102,7 @@ namespace Lua
 		template<typename T>
 		bool Is();
 		
-		string ToString()
-		{
-			return "not imp";
-		}
+		string ToString();
 		
 		template<typename... Args>
 		std::list<Variable> operator()(Args... args);
@@ -145,7 +144,7 @@ namespace Lua
 			Variable var = Variable(this);
 			
 			var._Global = true;
-			var.SetKey(new Variable(this, key));
+			var.SetKey(std::make_shared<Variable>(this, key));
 			
 			return var;
 		}
@@ -282,6 +281,8 @@ namespace Lua
 			_IsReference = true;
 			break;
 		case Type::Table:
+			lua_newtable(*_State);
+			Data.Reference = luaL_ref(*_State, LUA_REGISTRYINDEX);
 			_IsReference = true;
 			break;
 		}
@@ -337,19 +338,38 @@ namespace Lua
 	
 	Variable::~Variable()
 	{
-		if(_Key)
-			delete _Key;
-		
 		if(_IsReference) // TODO: wtf, _State is already de-referenced?
 			;//luaL_unref(*_State, 0, Data.Reference);
 	}
 	
-	void Variable::SetKey(Variable* key)
+	void Variable::SetKey(std::shared_ptr<Variable> key)
 	{
-		if(_Key)
-			delete _Key;
-			
+		_Key = nullptr;
 		_Key = key;
+	}
+	
+	string Variable::ToString()
+	{
+		std::stringstream ss;
+		
+		switch(_Type)
+		{
+		case Type::Nil:
+			return "nil";
+		case Type::String:
+			return Data.String;
+		case Type::Number:
+			ss << Data.Real;
+			return ss.str();
+		case Type::Boolean:
+			return Data.Boolean ? "true" : "false";
+		case Type::Function:
+			return "function";
+		case Type::Table:
+			return "table";
+		default:
+			return "ukn";
+		}
 	}
 	
 	template<typename T>
@@ -373,11 +393,11 @@ namespace Lua
 	{
 		if(GetType() != Type::Table)
 		{
-			throw RuntimeError("Attempted to index global '" + _Key->ToString() + "' (a " + GetTypeName() + " value)");
+			throw RuntimeError("Attempted to index '" + _Key->ToString() + "' (a " + GetTypeName() + " value)");
 			return Variable(_State, 0);
 		}
 		
-		Variable* key = new Variable(_State, val);
+		std::shared_ptr<Variable> key = std::make_shared<Variable>(_State, val);
 		
 		// push table
 		// push key

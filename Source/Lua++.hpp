@@ -59,6 +59,7 @@ namespace Lua
 		Type                       _Type;
 		State*                     _State;
 		std::shared_ptr<Variable>  _Key;
+		Variable*                  _KeyTo;
 		bool                       _Global;
 		
 		bool _IsReference;
@@ -90,7 +91,7 @@ namespace Lua
 		
 		~Variable();
 	
-		void SetKey(std::shared_ptr<Variable> key);
+		void SetKey(std::shared_ptr<Variable> key, Variable* to);
 		
 		Type GetType();
 		string GetTypeName();
@@ -144,7 +145,7 @@ namespace Lua
 			Variable var = Variable(this);
 			
 			var._Global = true;
-			var.SetKey(std::make_shared<Variable>(this, key));
+			var.SetKey(std::make_shared<Variable>(this, key), nullptr);
 			
 			return var;
 		}
@@ -228,10 +229,11 @@ namespace Lua
 		return rets;
 	}
 		
-	Variable::Variable(State* state) : _State(state), _Key(nullptr)
+	Variable::Variable(State* state) : _State(state), _Key(nullptr), _KeyTo(nullptr)
 	{
 		_Type = (Type)lua_type(*_State, -1);
 		_IsReference = false;
+		_Global = false;
 		
 		switch(_Type)
 		{
@@ -264,10 +266,11 @@ namespace Lua
 			lua_pop(*_State, 1);
 	}
 	
-	Variable::Variable(State* state, Type type) : _State(state), _Key(nullptr)
+	Variable::Variable(State* state, Type type) : _State(state), _Key(nullptr), _KeyTo(nullptr)
 	{
 		_Type = type;
 		_IsReference = false;
+		_Global = false;
 		
 		Data.Reference = 0;
 		Data.Boolean = false;
@@ -288,7 +291,17 @@ namespace Lua
 		}
 	}
 	
-	Variable::Variable(State* state, const string& value) : _State(state), _Key(nullptr)
+	Variable::Variable(State* state, const string& value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
+	{
+		_State = state;
+		_IsReference = false;
+		_Type = Type::String;
+		_Global = false;
+		
+		Data.String = value;
+	}
+	
+	Variable::Variable(State* state, const char* value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
 	{
 		_State = state;
 		_IsReference = false;
@@ -296,43 +309,43 @@ namespace Lua
 		Data.String = value;
 	}
 	
-	Variable::Variable(State* state, const char* value) : _State(state), _Key(nullptr)
-	{
-		_State = state;
-		_IsReference = false;
-		_Type = Type::String;
-		Data.String = value;
-	}
-	
-	Variable::Variable(State* state, bool value) : _State(state), _Key(nullptr)
+	Variable::Variable(State* state, bool value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
 	{
 		_State = state;
 		_IsReference = false;
 		_Type = Type::Boolean;
+		_Global = false;
+		
 		Data.Boolean = value;
 	}
 	
-	Variable::Variable(State* state, double value) : _State(state), _Key(nullptr)
+	Variable::Variable(State* state, double value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
 	{
 		_State = state;
 		_IsReference = false;
 		_Type = Type::Number;
+		_Global = false;
+		
 		Data.Real = value;
 	}
 	
-	Variable::Variable(State* state, long long value) : _State(state), _Key(nullptr)
+	Variable::Variable(State* state, long long value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
 	{
 		_State = state;
 		_IsReference = false;
 		_Type = Type::Number;
+		_Global = false;
+		
 		Data.Real = (double)value;
 	}
 	
-	Variable::Variable(State* state, int value) : _State(state), _Key(nullptr)
+	Variable::Variable(State* state, int value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
 	{
 		_State = state;
 		_IsReference = false;
 		_Type = Type::Number;
+		_Global = false;
+		
 		Data.Real = (double)value;
 	}
 	
@@ -342,10 +355,12 @@ namespace Lua
 			;//luaL_unref(*_State, 0, Data.Reference);
 	}
 	
-	void Variable::SetKey(std::shared_ptr<Variable> key)
+	void Variable::SetKey(std::shared_ptr<Variable> key, Variable* to)
 	{
 		_Key = nullptr;
 		_Key = key;
+		
+		_KeyTo = to;
 	}
 	
 	string Variable::ToString()
@@ -386,6 +401,23 @@ namespace Lua
 			
 			lua_setglobal(*_State, _Key->As<string>().c_str()); // TODO: use Variable to index
 		}
+		else
+		{
+			if(_KeyTo == nullptr)
+				throw RuntimeError("_KeyTo is null!");
+			
+			Variable tmp(_State, val);
+			this->_IsReference = tmp._IsReference;
+			this->_Type = tmp._Type;
+			this->Data = tmp.Data;
+			
+			_KeyTo->ToStack();
+			_Key->ToStack();
+			tmp.ToStack();
+			
+			lua_settable(*_State, -3);
+			lua_pop(*_State, 1);
+		}
 	}
 	
 	template<typename T>
@@ -410,7 +442,7 @@ namespace Lua
 		lua_gettable(*_State, -2);
 		
 		Variable ret = Variable(_State); // takes it from the stack
-		ret.SetKey(key);
+		ret.SetKey(key, this);
 		
 		lua_pop(*_State, 1);
 		return ret;

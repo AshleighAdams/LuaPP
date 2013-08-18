@@ -16,10 +16,11 @@ int main(int argc, char** argv)
 		state.LoadStandardLibary();
 		state.DoString("test = {a = 5}");
 		
-		auto var = state["test"]["a"]["b"];
+		state["test"]["a"] = 10;
+		cout << state["test"]["a"].ToString() << "\n";
 		
-		cout << var.GetTypeName() << ": " << var.As<double>() << "\n";
-		
+		state["test"]["a"] = "Hello, world";
+		cout << state["test"]["a"].ToString() << "\n";
 	}
 	catch(Lua::Exception ex)
 	{

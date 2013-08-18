@@ -466,8 +466,28 @@ namespace Lua
 			throw RuntimeError("Attempted to pairs '" + _Key->ToString() + "' (a " + GetTypeName() + " value)");
 			return {};
 		}
+		std::list<std::pair<Variable, Variable>> ret;
 		
-		return {};
+		this->ToStack();
+		{
+			lua_pushnil(*_State);
+			/* tbl=-2, key=-1 */
+			while (lua_next(*_State, -2) != 0)
+			{
+				/* tbl=-3 key=-2, value=-1 */
+				lua_pushvalue(*_State, -2);
+				/* tbl=-4 key=-3, value=-2, key=-1 */
+				Variable key = Variable(_State);
+				/* tbl=-3 key=-2, value=-1 */
+				Variable val = Variable(_State);
+				/* tbl=-2, key=-1 */
+				
+				ret.push_back({key, val});
+			}
+		}
+		lua_pop(*_State, 1);
+		
+		return ret;
 	}
 	
 	std::list<std::pair<Variable, Variable>> Variable::ipairs()

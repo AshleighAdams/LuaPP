@@ -54,10 +54,10 @@ namespace Lua
 	class Variable
 	{
 	public:
-		Type    _Type;
-		State*  _State;
-		string  _Key;
-		bool    _Global;
+		Type      _Type;
+		State*    _State;
+		Variable* _Key;
+		bool      _Global;
 		
 		bool _IsReference;
 		struct {
@@ -71,6 +71,7 @@ namespace Lua
 		
 	public:
 		Variable(State* state);
+		Variable(State* state, Type type);
 		
 		Variable(State* state, const string& value);
 		Variable(State* state, const char* value);
@@ -82,8 +83,12 @@ namespace Lua
 		template<typename T>
 		void operator=(const T& val);
 		
+		template<typename T>
+		Variable operator[](const T& val);
+		
 		~Variable();
 	
+		void SetKey(Variable* key);
 		
 		Type GetType();
 		string GetTypeName();
@@ -94,6 +99,11 @@ namespace Lua
 		
 		template<typename T>
 		bool Is();
+		
+		string ToString()
+		{
+			return "not imp";
+		}
 		
 		template<typename... Args>
 		std::list<Variable> operator()(Args... args);
@@ -135,7 +145,7 @@ namespace Lua
 			Variable var = Variable(this);
 			
 			var._Global = true;
-			var._Key = key;
+			var.SetKey(new Variable(this, key));
 			
 			return var;
 		}
@@ -191,7 +201,7 @@ namespace Lua
 	{
 		if(GetType() != Type::Function)
 		{
-			throw RuntimeError("Attempted to call '" + (_Key != "" ? _Key : "unknown") + "' (a " + GetTypeName() + " value)");
+			throw RuntimeError("Attempted to call '" + (_Key->ToString()) + "' (a " + GetTypeName() + " value)");
 			return {};
 		}
 		
@@ -219,7 +229,7 @@ namespace Lua
 		return rets;
 	}
 		
-	Variable::Variable(State* state) : _State(state) // the variable should be on the stack
+	Variable::Variable(State* state) : _State(state), _Key(nullptr)
 	{
 		_Type = (Type)lua_type(*_State, -1);
 		_IsReference = false;
@@ -243,6 +253,10 @@ namespace Lua
 			Data.Reference = luaL_ref(*_State, LUA_REGISTRYINDEX);
 			_IsReference = true;
 			break;
+		case Type::Table:
+			Data.Reference = luaL_ref(*_State, LUA_REGISTRYINDEX);
+			_IsReference = true;
+			break;
 		default:
 			throw RuntimeError("The type `" + GetTypeName() + "' hasn't been implimented!");
 		}
@@ -251,7 +265,29 @@ namespace Lua
 			lua_pop(*_State, 1);
 	}
 	
-	Variable::Variable(State* state, const string& value) : _State(state)
+	Variable::Variable(State* state, Type type) : _State(state), _Key(nullptr)
+	{
+		_Type = type;
+		_IsReference = false;
+		
+		Data.Reference = 0;
+		Data.Boolean = false;
+		Data.Integer = 0;
+		Data.String = "";
+		Data.Pointer = nullptr;
+		
+		switch(type)
+		{
+		case Type::Function:
+			_IsReference = true;
+			break;
+		case Type::Table:
+			_IsReference = true;
+			break;
+		}
+	}
+	
+	Variable::Variable(State* state, const string& value) : _State(state), _Key(nullptr)
 	{
 		_State = state;
 		_IsReference = false;
@@ -259,7 +295,7 @@ namespace Lua
 		Data.String = value;
 	}
 	
-	Variable::Variable(State* state, const char* value) : _State(state)
+	Variable::Variable(State* state, const char* value) : _State(state), _Key(nullptr)
 	{
 		_State = state;
 		_IsReference = false;
@@ -267,7 +303,7 @@ namespace Lua
 		Data.String = value;
 	}
 	
-	Variable::Variable(State* state, bool value) : _State(state)
+	Variable::Variable(State* state, bool value) : _State(state), _Key(nullptr)
 	{
 		_State = state;
 		_IsReference = false;
@@ -275,7 +311,7 @@ namespace Lua
 		Data.Boolean = value;
 	}
 	
-	Variable::Variable(State* state, double value) : _State(state)
+	Variable::Variable(State* state, double value) : _State(state), _Key(nullptr)
 	{
 		_State = state;
 		_IsReference = false;
@@ -283,7 +319,7 @@ namespace Lua
 		Data.Real = value;
 	}
 	
-	Variable::Variable(State* state, long long value) : _State(state)
+	Variable::Variable(State* state, long long value) : _State(state), _Key(nullptr)
 	{
 		_State = state;
 		_IsReference = false;
@@ -291,7 +327,7 @@ namespace Lua
 		Data.Real = (double)value;
 	}
 	
-	Variable::Variable(State* state, int value) : _State(state)
+	Variable::Variable(State* state, int value) : _State(state), _Key(nullptr)
 	{
 		_State = state;
 		_IsReference = false;
@@ -301,8 +337,19 @@ namespace Lua
 	
 	Variable::~Variable()
 	{
+		if(_Key)
+			delete _Key;
+		
 		if(_IsReference) // TODO: wtf, _State is already de-referenced?
 			;//luaL_unref(*_State, 0, Data.Reference);
+	}
+	
+	void Variable::SetKey(Variable* key)
+	{
+		if(_Key)
+			delete _Key;
+			
+		_Key = key;
 	}
 	
 	template<typename T>
@@ -317,8 +364,34 @@ namespace Lua
 			
 			this->ToStack();
 			
-			lua_setglobal(*_State, _Key.c_str());
+			lua_setglobal(*_State, _Key->As<string>().c_str()); // TODO: use Variable to index
 		}
+	}
+	
+	template<typename T>
+	Variable Variable::operator[](const T& val)
+	{
+		if(GetType() != Type::Table)
+		{
+			throw RuntimeError("Attempted to index global '" + _Key->ToString() + "' (a " + GetTypeName() + " value)");
+			return Variable(_State, 0);
+		}
+		
+		Variable* key = new Variable(_State, val);
+		
+		// push key
+		// push table
+		// return
+		
+		this->ToStack();
+		key->ToStack();
+				
+		lua_gettable(*_State, -2);
+		
+		Variable ret = Variable(_State); // takes it from the stack
+		ret.SetKey(key);
+		
+		return ret;
 	}
 	
 	void Variable::ToStack()
@@ -338,6 +411,9 @@ namespace Lua
 			lua_pushboolean(*_State, Data.Boolean);
 			break;
 		case Type::Function:
+			lua_rawgeti(*_State, LUA_REGISTRYINDEX, Data.Reference);
+			break;
+		case Type::Table:
 			lua_rawgeti(*_State, LUA_REGISTRYINDEX, Data.Reference);
 			break;
 		default:

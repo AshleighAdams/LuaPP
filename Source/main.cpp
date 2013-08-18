@@ -23,6 +23,16 @@ void PrintTable(Lua::Variable tbl, int depth = 0)
 	}
 }
 
+list<Lua::Variable> TestFunc(Lua::State* state, list<Lua::Variable>& args)
+{
+	cout << "This is a test function, " << args.size() << " arguments provided, which are: \n";
+	
+	for(Lua::Variable& var : args)
+		cout << "\t" << var.GetTypeName() << ": " << var.ToString() << "\n";
+	
+	return {};
+}
+
 int main(int argc, char** argv)
 {
 	cout << "\n";
@@ -31,14 +41,12 @@ int main(int argc, char** argv)
 		Lua::State state;
 		
 		state.LoadStandardLibary();
-		state.DoString("test = {a = 'b', nested = {hi = 'gutten tag', [function() end] = true}, some_int = 1337}", "test");
 		
 		
-		cout << "generic reference test:\n\n";
-		cout << state["test"].GetTypeName() << "\n";
+		Lua::Variable func(&state, TestFunc);
+		func("hi", 54, true);
 		
-		cout << "\n\nPrintTable reference test:\n\n";
-		PrintTable(state["test"]);
+		//state.DoString("", "test");
 	}
 	catch(Lua::Exception ex)
 	{

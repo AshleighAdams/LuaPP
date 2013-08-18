@@ -7,6 +7,8 @@
 #include <list>
 #include <memory>
 #include <sstream>
+#include <functional>
+#include <unordered_map>
 
 // lua
 #include <lua.hpp>
@@ -52,8 +54,14 @@ namespace Lua
 		Thread
 	};
 	
+	struct NewTable_t {} NewTable;
+	
 	class State;
 	class Reference;
+	class Variable;
+	
+	typedef std::function<std::list<Variable>(State*, std::list<Variable>&)> CFunction;
+	
 	class Variable
 	{
 	public:
@@ -76,6 +84,8 @@ namespace Lua
 	public:
 		Variable(State* state);
 		Variable(State* state, Type type);
+		Variable(State* state, lua_CFunction func);
+		Variable(State* state, CFunction func);
 		
 		Variable(State* state, const string& value);
 		Variable(State* state, const char* value);
@@ -86,6 +96,7 @@ namespace Lua
 		
 		template<typename T>
 		void operator=(const T& val);
+		void operator=(NewTable_t t);
 		
 		// for table
 		template<typename T>
@@ -149,6 +160,12 @@ namespace Lua
 			
 			if(lua_pcall(_State, 0, 0, 0))
 				throw RuntimeError(lua_tostring(_State, -1));
+		}
+		
+		void LoadString(const string& code, const string& name = "LoadString")
+		{
+			if(luaL_loadbuffer(_State, code.c_str(), code.length(), name.c_str()))
+				throw CompileError(lua_tostring(_State, -1));
 		}
 		
 		Variable operator[](const string& key)
@@ -240,7 +257,7 @@ namespace Lua
 	{
 		if(GetType() != Type::Function)
 		{
-			throw RuntimeError("Attempted to call '" + (_Key->ToString()) + "' (a " + GetTypeName() + " value)");
+			throw RuntimeError("Attempted to call " + (_Key != nullptr ? "'"+_Key->ToString()+"'" : "an unindexed variable") + " (a " + GetTypeName() + " value)");
 			return {};
 		}
 		
@@ -328,6 +345,81 @@ namespace Lua
 			_IsReference = true;
 			break;
 		}
+	}
+	
+	Variable::Variable(State* state, lua_CFunction func)
+	{
+		_State = state;
+		_IsReference = true;
+		_Type = Type::Function;
+		_Global = false;
+		
+		lua_pushcfunction(*_State, func);
+		Data.Ref = Reference::FromStack(state);
+	}
+	
+	static int FUNC_ID = {};
+	static std::unordered_map<int, std::pair<State*, CFunction>> REGISTERED = {};
+	
+	int Proxy(lua_State* L)
+	{
+		int func = lua_tonumber(L, 1);
+		int argc = lua_gettop(L);
+		
+		auto pair = REGISTERED[func];
+		State* state = pair.first;
+		
+		std::list<Variable> args;
+		
+		for(int i = 1; i < argc; i++) // the first one is the target function
+			args.push_front({Variable(state)});
+		
+		std::list<Variable> rets = pair.second(state, args);
+		
+		for(Variable& var : rets)
+			var.Push();
+		
+		return rets.size();
+	}
+	
+	bool replace(std::string& str, const std::string& from, const std::string& to)
+	{
+		size_t start_pos = str.find(from);
+		if(start_pos == std::string::npos)
+			return false;
+		str.replace(start_pos, from.length(), to);
+		return true;
+	}
+	
+	Variable::Variable(State* state, CFunction func)
+	{
+		_State = state;
+		_IsReference = true;
+		_Type = Type::Function;
+		_Global = false;
+		
+		Variable _CPP = (*state)["_CPP"];
+		
+		if(_CPP.IsNil())
+		{
+			_CPP = NewTable;
+			_CPP["proxy"] = Proxy;
+		}
+		
+		FUNC_ID++;
+		REGISTERED[FUNC_ID] = {state, func};
+		
+		// generate the code
+		std::stringstream ss; ss << FUNC_ID;
+		string strfuncid = ss.str();
+		
+		string code = "return _CPP.proxy($FUNC_ID, ...)";
+		replace(code, "$FUNC_ID", strfuncid);
+		
+		
+		//Variable proxyfunc = Variable(state, Type::Function);
+		state->LoadString(code, "C Proxy Func " + strfuncid);
+		Data.Ref = Reference::FromStack(state);
 	}
 	
 	Variable::Variable(State* state, const string& value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
@@ -426,12 +518,35 @@ namespace Lua
 		}
 	}
 	
+	void Variable::operator=(NewTable_t t)
+	{
+		Variable tmp(_State, Type::Table);
+		this->_IsReference = tmp._IsReference;
+		this->_Type = tmp._Type;
+		this->Data = tmp.Data;
+		
+		if(_Global)
+		{
+			this->Push();
+			lua_setglobal(*_State, _Key->As<string>().c_str()); // TODO: use Variable to index
+		}
+		else
+		{
+			_KeyTo->Push();
+			_Key->Push();
+			tmp.Push();
+			
+			lua_settable(*_State, -3);
+			lua_pop(*_State, 1);
+		}
+	}
+	
 	template<typename T>
 	void Variable::operator=(const T& val)
 	{
 		if(_Global)
 		{
-			Variable tmp(nullptr, val);
+			Variable tmp(_State, val);
 			this->_IsReference = tmp._IsReference;
 			this->_Type = tmp._Type;
 			this->Data = tmp.Data;

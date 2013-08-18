@@ -94,10 +94,10 @@ namespace Lua
 		Variable(State* state, long long value);
 		Variable(State* state, int value);
 		
-		template<typename T>
-		void operator=(const T& val);
 		void operator=(Variable& val);
 		void operator=(NewTable_t t);
+		template<typename T>
+		void operator=(const T& val);
 		
 		// for table
 		template<typename T>
@@ -154,19 +154,48 @@ namespace Lua
 			luaL_openlibs(_State);
 		}
 		
-		void DoString(const string& code, const string& name = "DoString") throw(CompileError, RuntimeError)
+		void LoadString(const string& code, const string& name = "LoadString") throw(CompileError)
 		{
 			if(luaL_loadbuffer(_State, code.c_str(), code.length(), name.c_str()))
-				throw CompileError(lua_tostring(_State, -1));
-			
-			if(lua_pcall(_State, 0, 0, 0))
-				throw RuntimeError(lua_tostring(_State, -1));
+			{
+				string err = lua_tostring(_State, -1);
+				lua_pop(_State, 1);
+				throw CompileError(err);
+			}
 		}
 		
-		void LoadString(const string& code, const string& name = "LoadString")
+		void DoString(const string& code, const string& name = "DoString") throw(CompileError, RuntimeError)
 		{
-			if(luaL_loadbuffer(_State, code.c_str(), code.length(), name.c_str()))
-				throw CompileError(lua_tostring(_State, -1));
+			this->LoadString(code, name);
+			
+			if(lua_pcall(_State, 0, 0, 0))
+			{
+				string err = lua_tostring(_State, -1);
+				lua_pop(_State, 1);
+				throw RuntimeError(err);
+			}
+		}
+		
+		void LoadFile(const string& file)
+		{
+			if(luaL_loadfile(_State, file.c_str()))
+			{
+				string err = lua_tostring(_State, -1);
+				lua_pop(_State, 1);
+				throw CompileError(err);
+			}
+		}
+		
+		void DoFile(const string& file)
+		{
+			this->LoadFile(file);
+			
+			if(lua_pcall(_State, 0, 0, 0))
+			{
+				string err = lua_tostring(_State, -1);
+				lua_pop(_State, 1);
+				throw RuntimeError(err);
+			}
 		}
 		
 		Variable GenerateFunction(CFunction func)
@@ -793,29 +822,3 @@ namespace Lua
 }
 
 #endif
-
-
-/*
-
-idea:
-
-Lua::State state;
-
-state.RunString("a = 1337 b = "hello, world"");
-
-Lua::Variable var_a = state["a"];
-Lua::Variable var_b = state["b"];
-
-int a = var_a.as<int>();
-string b = var_b.as<string>();
-
-
-
-
-
-
-
-
-
-
- * */

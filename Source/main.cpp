@@ -33,6 +33,11 @@ int main(int argc, char** argv)
 		state.LoadStandardLibary();
 		state.DoString("test = {a = 'b', nested = {hi = 'gutten tag', [function() end] = true}, some_int = 1337}", "test");
 		
+		
+		cout << "generic reference test:\n\n";
+		cout << state["test"].GetTypeName() << "\n";
+		
+		cout << "\n\nPrintTable reference test:\n\n";
 		PrintTable(state["test"]);
 	}
 	catch(Lua::Exception ex)

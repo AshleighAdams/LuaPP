@@ -53,6 +53,7 @@ namespace Lua
 	};
 	
 	class State;
+	class Reference;
 	class Variable
 	{
 	public:
@@ -69,7 +70,7 @@ namespace Lua
 			int Integer;
 			double Real;
 			bool Boolean;
-			int Reference;
+			std::shared_ptr<Reference> Ref;
 		} Data;
 		
 	public:
@@ -96,7 +97,7 @@ namespace Lua
 		
 		Type GetType();
 		string GetTypeName();
-		void ToStack();
+		void Push();
 		
 		bool IsNil()
 		{
@@ -162,6 +163,33 @@ namespace Lua
 		}
 	};
 	
+	class Reference // to be used with shared_ptr
+	{
+		int _Ref;
+		State* _State;
+	public:
+		Reference(State* state, int ref) : _State(state), _Ref(ref)
+		{
+		}
+		
+		~Reference()
+		{
+			luaL_unref(*_State, LUA_REGISTRYINDEX, _Ref);
+		}
+		
+		void Push()
+		{
+			lua_rawgeti(*_State, LUA_REGISTRYINDEX, _Ref);
+		}
+		
+		static std::shared_ptr<Reference> FromStack(State* state)
+		{
+			int ref = luaL_ref(*state, LUA_REGISTRYINDEX);
+			
+			return std::make_shared<Reference>(state, ref);
+		}
+	};
+	
 	namespace Extensions
 	{
 		template <class T1, class T2>
@@ -176,7 +204,7 @@ namespace Lua
 		void PushRecursive(State& state, int& argc, Variable& var)
 		{
 			argc++;
-			var.ToStack();
+			var.Push();
 		}
 		
 		template<typename T>
@@ -185,7 +213,7 @@ namespace Lua
 			argc++;
 			Variable var(&state, arg);
 			
-			var.ToStack();
+			var.Push();
 		}
 		
 		void PushRecursive(State& state, int& argc)
@@ -218,7 +246,7 @@ namespace Lua
 		
 		int top = lua_gettop(*_State);
 		
-		this->ToStack();
+		this->Push();
 		int argc = 0;
 		_Variable::PushRecursive(*_State, argc, args...);
 		
@@ -262,11 +290,11 @@ namespace Lua
 			Data.Boolean = lua_toboolean(*_State, -1);
 			break;
 		case Type::Function:
-			Data.Reference = luaL_ref(*_State, LUA_REGISTRYINDEX);
+			Data.Ref = Reference::FromStack(_State);
 			_IsReference = true;
 			break;
 		case Type::Table:
-			Data.Reference = luaL_ref(*_State, LUA_REGISTRYINDEX);
+			Data.Ref = Reference::FromStack(_State);
 			_IsReference = true;
 			break;
 		default:
@@ -283,7 +311,7 @@ namespace Lua
 		_IsReference = false;
 		_Global = false;
 		
-		Data.Reference = 0;
+		Data.Ref = nullptr;
 		Data.Boolean = false;
 		Data.Integer = 0;
 		Data.String = "";
@@ -296,7 +324,7 @@ namespace Lua
 			break;
 		case Type::Table:
 			lua_newtable(*_State);
-			Data.Reference = luaL_ref(*_State, LUA_REGISTRYINDEX);
+			Data.Ref = Reference::FromStack(_State);
 			_IsReference = true;
 			break;
 		}
@@ -408,7 +436,7 @@ namespace Lua
 			this->_Type = tmp._Type;
 			this->Data = tmp.Data;
 			
-			this->ToStack();
+			this->Push();
 			
 			lua_setglobal(*_State, _Key->As<string>().c_str()); // TODO: use Variable to index
 		}
@@ -422,9 +450,9 @@ namespace Lua
 			this->_Type = tmp._Type;
 			this->Data = tmp.Data;
 			
-			_KeyTo->ToStack();
-			_Key->ToStack();
-			tmp.ToStack();
+			_KeyTo->Push();
+			_Key->Push();
+			tmp.Push();
 			
 			lua_settable(*_State, -3);
 			lua_pop(*_State, 1);
@@ -447,8 +475,8 @@ namespace Lua
 		// tell lua to index the table -2, with -1
 		
 		
-		this->ToStack();
-		key->ToStack();
+		this->Push();
+		key->Push();
 				
 		lua_gettable(*_State, -2);
 		
@@ -468,7 +496,7 @@ namespace Lua
 		}
 		std::list<std::pair<Variable, Variable>> ret;
 		
-		this->ToStack();
+		this->Push();
 		{
 			lua_pushnil(*_State);
 			/* tbl=-2, key=-1 */
@@ -516,7 +544,7 @@ namespace Lua
 		return ret;
 	}
 	
-	void Variable::ToStack()
+	void Variable::Push()
 	{
 		switch(_Type)
 		{
@@ -533,10 +561,10 @@ namespace Lua
 			lua_pushboolean(*_State, Data.Boolean);
 			break;
 		case Type::Function:
-			lua_rawgeti(*_State, LUA_REGISTRYINDEX, Data.Reference);
+			Data.Ref->Push();
 			break;
 		case Type::Table:
-			lua_rawgeti(*_State, LUA_REGISTRYINDEX, Data.Reference);
+			Data.Ref->Push();
 			break;
 		default:
 			throw RuntimeError("The type `" + GetTypeName() + "' hasn't been implimented!");
@@ -598,6 +626,17 @@ namespace Lua
 					out = var.Data.Real;
 				else
 					throw RuntimeError("GetValue<double>(): variable is not a number!");
+			}
+		};
+		
+		template<> struct GetValue<Variable&, bool&>
+		{
+			void operator()(Variable& var, bool& out)
+			{
+				if(var.GetType() == Type::Boolean)
+					out = var.Data.Boolean;
+				else
+					throw RuntimeError("GetValue<bool>(): variable is not a boolean!");
 			}
 		};
 		

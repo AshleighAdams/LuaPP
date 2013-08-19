@@ -54,7 +54,11 @@ namespace Lua
 		Thread
 	};
 	
-	struct NewTable_t {} NewTable;
+	class NewTable
+	{
+	public:
+		NewTable(){}
+	};
 	
 	class State;
 	class Reference;
@@ -82,20 +86,20 @@ namespace Lua
 		} Data;
 		
 	public:
-		Variable(State* state);
-		Variable(State* state, Type type);
-		Variable(State* state, lua_CFunction func);
-		Variable(State* state, CFunction func);
+		inline Variable(State* state);
+		inline Variable(State* state, Type type);
+		inline Variable(State* state, lua_CFunction func);
+		inline Variable(State* state, CFunction func);
 		
-		Variable(State* state, const string& value);
-		Variable(State* state, const char* value);
-		Variable(State* state, bool value);
-		Variable(State* state, double value);
-		Variable(State* state, long long value);
-		Variable(State* state, int value);
+		inline Variable(State* state, const string& value);
+		inline Variable(State* state, const char* value);
+		inline Variable(State* state, bool value);
+		inline Variable(State* state, double value);
+		inline Variable(State* state, long long value);
+		inline Variable(State* state, int value);
 		
-		void operator=(Variable& val);
-		void operator=(NewTable_t t);
+		inline void operator=(Variable& val);
+		inline void operator=(NewTable t);
 		template<typename T>
 		void operator=(const T& val);
 		
@@ -103,13 +107,13 @@ namespace Lua
 		template<typename T>
 		Variable operator[](const T& val);
 		
-		~Variable();
+		inline ~Variable();
 	
-		void SetKey(std::shared_ptr<Variable> key, Variable* to);
+		inline void SetKey(std::shared_ptr<Variable> key, Variable* to);
 		
-		Type GetType();
-		string GetTypeName();
-		void Push();
+		inline Type GetType();
+		inline string GetTypeName();
+		inline void Push();
 		
 		bool IsNil()
 		{
@@ -122,15 +126,15 @@ namespace Lua
 		template<typename T>
 		bool Is();
 		
-		string ToString();
+		inline string ToString();
 		
 		// functions
 		template<typename... Args>
 		std::list<Variable> operator()(Args... args);
 		
 		// tables
-		std::list<std::pair<Variable, Variable>> pairs();
-		std::list<std::pair<Variable, Variable>> ipairs();
+		inline std::list<std::pair<Variable, Variable>> pairs();
+		inline std::list<std::pair<Variable, Variable>> ipairs();
 	};
 	
 	class State
@@ -253,7 +257,7 @@ namespace Lua
 	// ---------------------
 	namespace _Variable
 	{
-		void PushRecursive(State& state, int& argc, Variable& var)
+		inline void PushRecursive(State& state, int& argc, Variable& var)
 		{
 			argc++;
 			var.Push();
@@ -268,7 +272,7 @@ namespace Lua
 			var.Push();
 		}
 		
-		void PushRecursive(State& state, int& argc)
+		inline void PushRecursive(State& state, int& argc)
 		{
 			// finalizer
 		}
@@ -320,7 +324,7 @@ namespace Lua
 		return rets;
 	}
 		
-	Variable::Variable(State* state) : _State(state), _Key(nullptr), _KeyTo(nullptr)
+	inline Variable::Variable(State* state) : _State(state), _Key(nullptr), _KeyTo(nullptr)
 	{
 		_Type = (Type)lua_type(*_State, -1);
 		_IsReference = false;
@@ -357,7 +361,7 @@ namespace Lua
 			lua_pop(*_State, 1);
 	}
 	
-	Variable::Variable(State* state, Type type) : _State(state), _Key(nullptr), _KeyTo(nullptr)
+	inline Variable::Variable(State* state, Type type) : _State(state), _Key(nullptr), _KeyTo(nullptr)
 	{
 		_Type = type;
 		_IsReference = false;
@@ -396,7 +400,7 @@ namespace Lua
 	static int FUNC_ID = {};
 	static std::unordered_map<int, std::pair<State*, CFunction>> REGISTERED = {};
 	
-	int Proxy(lua_State* L)
+	static int Proxy(lua_State* L)
 	{
 		int func = lua_tonumber(L, 1);
 		int argc = lua_gettop(L);
@@ -417,7 +421,7 @@ namespace Lua
 		return rets.size();
 	}
 	
-	bool replace(std::string& str, const std::string& from, const std::string& to)
+	inline bool replace(std::string& str, const std::string& from, const std::string& to)
 	{
 		size_t start_pos = str.find(from);
 		if(start_pos == std::string::npos)
@@ -426,7 +430,7 @@ namespace Lua
 		return true;
 	}
 	
-	Variable::Variable(State* state, CFunction func)
+	inline Variable::Variable(State* state, CFunction func)
 	{
 		_State = state;
 		_IsReference = true;
@@ -437,7 +441,7 @@ namespace Lua
 		
 		if(_CPP.IsNil())
 		{
-			_CPP = NewTable;
+			_CPP = NewTable();
 			_CPP["proxy"] = Proxy;
 		}
 		
@@ -457,7 +461,7 @@ namespace Lua
 		Data.Ref = Reference::FromStack(state);
 	}
 	
-	Variable::Variable(State* state, const string& value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
+	inline Variable::Variable(State* state, const string& value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
 	{
 		_State = state;
 		_IsReference = false;
@@ -467,7 +471,7 @@ namespace Lua
 		Data.String = value;
 	}
 	
-	Variable::Variable(State* state, const char* value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
+	inline Variable::Variable(State* state, const char* value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
 	{
 		_State = state;
 		_IsReference = false;
@@ -475,7 +479,7 @@ namespace Lua
 		Data.String = value;
 	}
 	
-	Variable::Variable(State* state, bool value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
+	inline Variable::Variable(State* state, bool value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
 	{
 		_State = state;
 		_IsReference = false;
@@ -485,7 +489,7 @@ namespace Lua
 		Data.Boolean = value;
 	}
 	
-	Variable::Variable(State* state, double value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
+	inline Variable::Variable(State* state, double value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
 	{
 		_State = state;
 		_IsReference = false;
@@ -495,7 +499,7 @@ namespace Lua
 		Data.Real = value;
 	}
 	
-	Variable::Variable(State* state, long long value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
+	inline Variable::Variable(State* state, long long value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
 	{
 		_State = state;
 		_IsReference = false;
@@ -505,7 +509,7 @@ namespace Lua
 		Data.Real = (double)value;
 	}
 	
-	Variable::Variable(State* state, int value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
+	inline Variable::Variable(State* state, int value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
 	{
 		_State = state;
 		_IsReference = false;
@@ -515,13 +519,13 @@ namespace Lua
 		Data.Real = (double)value;
 	}
 	
-	Variable::~Variable()
+	inline Variable::~Variable()
 	{
 		if(_IsReference) // TODO: wtf, _State is already de-referenced?
 			;//luaL_unref(*_State, 0, Data.Reference);
 	}
 	
-	void Variable::SetKey(std::shared_ptr<Variable> key, Variable* to)
+	inline void Variable::SetKey(std::shared_ptr<Variable> key, Variable* to)
 	{
 		_Key = nullptr;
 		_Key = key;
@@ -529,7 +533,7 @@ namespace Lua
 		_KeyTo = to;
 	}
 	
-	string Variable::ToString()
+	inline string Variable::ToString()
 	{
 		std::stringstream ss;
 		
@@ -553,7 +557,7 @@ namespace Lua
 		}
 	}
 	
-	void Variable::operator=(NewTable_t t)
+	inline void Variable::operator=(NewTable t)
 	{
 		Variable tmp(_State, Type::Table);
 		this->_IsReference = tmp._IsReference;
@@ -579,7 +583,7 @@ namespace Lua
 		}
 	}
 	
-	void Variable::operator=(Variable& val)
+	inline void Variable::operator=(Variable& val)
 	{
 		this->_IsReference = val._IsReference;
 		this->_Type = val._Type;
@@ -665,7 +669,7 @@ namespace Lua
 		return ret;
 	}
 	
-	std::list<std::pair<Variable, Variable>> Variable::pairs()
+	inline std::list<std::pair<Variable, Variable>> Variable::pairs()
 	{
 		if(GetType() != Type::Table)
 		{
@@ -696,7 +700,7 @@ namespace Lua
 		return ret;
 	}
 	
-	std::list<std::pair<Variable, Variable>> Variable::ipairs()
+	inline std::list<std::pair<Variable, Variable>> Variable::ipairs()
 	{
 		if(GetType() != Type::Table)
 		{
@@ -722,7 +726,7 @@ namespace Lua
 		return ret;
 	}
 	
-	void Variable::Push()
+	inline void Variable::Push()
 	{
 		switch(_Type)
 		{
@@ -749,12 +753,12 @@ namespace Lua
 		}
 	}
 	
-	Type Variable::GetType()
+	inline Type Variable::GetType()
 	{
 		return _Type;
 	}
 	
-	string Variable::GetTypeName()
+	inline string Variable::GetTypeName()
 	{
 		return lua_typename(*_State, _Type);
 	}

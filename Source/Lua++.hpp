@@ -5,10 +5,17 @@
 #include <string>
 #include <exception>
 #include <list>
+#include <map>
+#include <unordered_map>
 #include <memory>
 #include <sstream>
 #include <functional>
-#include <unordered_map>
+#include <tuple>
+#include <algorithm>
+#include <cassert>
+#include <cstring>
+#include <limits>
+#include <type_traits>
 
 // lua
 #include <lua.hpp>
@@ -88,8 +95,9 @@ namespace Lua
 	public:
 		inline Variable(State* state);
 		inline Variable(State* state, Type type);
-		inline Variable(State* state, lua_CFunction func);
-		inline Variable(State* state, CFunction func);
+		inline Variable(State* state, lua_CFunction func); // for (int)(*)(lua_State*)
+		inline Variable(State* state, std::function<int(lua_State*)> func); // function<int(lua_State*)>
+		inline Variable(State* state, CFunction func); // function<list<Variable>(list<Variable>&)
 		
 		inline Variable(State* state, const string& value);
 		inline Variable(State* state, const char* value);
@@ -205,6 +213,49 @@ namespace Lua
 		Variable GenerateFunction(CFunction func)
 		{
 			return Variable(this, (CFunction)func);
+		}
+		
+		
+		template <typename T>
+		struct function_traits
+			: public function_traits<decltype(&T::operator())>
+		{};
+		// For generic types, directly use the result of the signature of its 'operator()'
+
+		template <typename ClassType, typename ReturnType, typename... Args>
+		struct function_traits<ReturnType(ClassType::*)(Args...) const>
+		// we specialize for pointers to member function
+		{
+			enum { arity = sizeof...(Args) };
+			// arity is the number of arguments.
+
+			typedef ReturnType  result_type;
+			typedef ClassType   class_type;
+
+			template <size_t i>
+			struct arg
+			{
+				typedef typename std::tuple_element<i, std::tuple<Args...>>::type type;
+				// the i-th argument is equivalent to the i-th tuple element of a tuple
+				// composed of those arguments.
+			};
+		};
+		
+		
+		template<typename T>
+		void _GenerateMemberFunction(const string& name, T func, size_t tmp = sizeof(decltype(&T::operator())))
+		{
+			typedef function_traits<T> traits;
+			
+		}
+		
+		template<typename T>
+		void GenerateMemberFunction(const std::string& name, std::list<Variable> (T::*f)(State*, std::list<Variable>&))
+		{
+			_GenerateMemberFunction(name, [f](std::shared_ptr<T> ptr, State* state, std::list<Variable>& args)
+			{
+				((*ptr).*f)(state, args); 
+			}); 
 		}
 		
 		Variable operator[](const string& key)
@@ -396,31 +447,7 @@ namespace Lua
 		lua_pushcfunction(*_State, func);
 		Data.Ref = Reference::FromStack(state);
 	}
-	
-	static int FUNC_ID = {};
-	static std::unordered_map<int, std::pair<State*, CFunction>> REGISTERED = {};
-	
-	static int Proxy(lua_State* L)
-	{
-		int func = lua_tonumber(L, 1);
-		int argc = lua_gettop(L);
 		
-		auto pair = REGISTERED[func];
-		State* state = pair.first;
-		
-		std::list<Variable> args;
-		
-		for(int i = 1; i < argc; i++) // the first one is the target function
-			args.push_front({Variable(state)});
-		
-		std::list<Variable> rets = pair.second(state, args);
-		
-		for(Variable& var : rets)
-			var.Push();
-		
-		return rets.size();
-	}
-	
 	inline bool replace(std::string& str, const std::string& from, const std::string& to)
 	{
 		size_t start_pos = str.find(from);
@@ -437,27 +464,74 @@ namespace Lua
 		_Type = Type::Function;
 		_Global = false;
 		
-		Variable _CPP = (*state)["_CPP"];
-		
-		if(_CPP.IsNil())
+		auto proxy = [state, func](lua_State* L) -> int
 		{
-			_CPP = NewTable();
-			_CPP["proxy"] = Proxy;
-		}
+			int argc = lua_gettop(L);
+			
+			std::list<Variable> args;
 		
-		FUNC_ID++;
-		REGISTERED[FUNC_ID] = {state, func};
+			for(int i = 1; i < argc; i++) // the first one is the target function
+				args.push_front({Variable(state)});
 		
-		// generate the code
-		std::stringstream ss; ss << FUNC_ID;
-		string strfuncid = ss.str();
+			std::list<Variable> rets = func(state, args);
 		
-		string code = "return _CPP.proxy($FUNC_ID, ...)";
-		replace(code, "$FUNC_ID", strfuncid);
+			for(Variable& var : rets)
+				var.Push();
 		
+			return rets.size();
+		};
 		
-		//Variable proxyfunc = Variable(state, Type::Function);
-		state->LoadString(code, "C Proxy Func " + strfuncid);
+		Variable tmp(state, proxy);
+		Data.Ref = tmp.Data.Ref; // steal the copy to the reference!
+	}
+	
+	inline Variable::Variable(State* state, std::function<int(lua_State*)> func)
+	{
+		_State = state;
+		_IsReference = true;
+		_Type = Type::Function;
+		_Global = false;
+		
+		typedef std::function<int (lua_State*)>	FunctionType; // thanks to luawrapper
+		
+		struct Callback
+		{
+			static int call(lua_State* lua)
+			{
+				assert(lua_gettop(lua) >= 1);
+				assert(lua_isuserdata(lua, 1));
+				FunctionType* function = (FunctionType*)lua_touserdata(lua, 1);
+				assert(function);
+				assert(*function);
+				return (*function)(lua);
+			}
+			static int garbage(lua_State* lua)
+			{
+				assert(lua_gettop(lua) == 1);
+				FunctionType* function = (FunctionType*)lua_touserdata(lua, 1);
+				assert(function);
+				assert(*function);
+				function->~function();
+				return 0;
+			}
+		};
+		
+		FunctionType* functionLocation = (FunctionType*)lua_newuserdata(*state, sizeof(FunctionType));
+		new (functionLocation) FunctionType(std::move(func)); // wtf is this line?
+		
+		lua_newtable(*state);
+		lua_pushstring(*state, "__call");
+		lua_pushcfunction(*state, &Callback::call);
+		lua_settable(*state, -3);
+		lua_pushstring(*state, "_typeid");
+		lua_pushstring(*state, typeid(FunctionType).name());
+		lua_settable(*state, -3);
+		lua_pushstring(*state, "__gc");
+		lua_pushcfunction(*state, &Callback::garbage);
+		lua_settable(*state, -3);
+		
+		lua_setmetatable(*state, -2);
+		
 		Data.Ref = Reference::FromStack(state);
 	}
 	

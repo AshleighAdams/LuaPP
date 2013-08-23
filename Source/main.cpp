@@ -6,60 +6,62 @@
 
 using namespace std;
 
-void PrintTable(Lua::Variable tbl, int depth = 0)
+class Vector
 {
-	for(auto pair : tbl.pairs())
+public:
+	double X = {}, Y = {}, Z = {};
+	Vector()
 	{
-		for(int i = 0; i < depth; i++)
-			cout << '\t';
-		
-		if(pair.second.GetType() == Lua::Type::Table)
-		{
-			cout << pair.first.ToString() << ":\n";
-			return PrintTable(pair.second, depth + 1);
-		}
-		
-		cout << pair.first.ToString() << " = " << pair.second.ToString() << "\n";
 	}
-}
+	
+	Vector(double x, double y, double z) : X(x), Y(y), Z(z)
+	{
+	}
+	
+	double Length()
+	{
+		return sqrt(X*X+Y*Y+Z*Z);
+	}
+	
+	std::vector<Lua::Variable> LuaLength(Lua::State* state, std::vector<Lua::Variable>& args)
+	{
+		return {{state, Length()}};
+	}
+};
 
-list<Lua::Variable> TestFunc(Lua::State* state, list<Lua::Variable>& args)
+std::vector<Lua::Variable> LuaNewVector(Lua::State* state, std::vector<Lua::Variable>& args)
 {
-	cout << "This is a test function, " << args.size() << " arguments provided, which are: \n";
+	size_t len = args.size();
+	double X, Y, Z;
+	X = Y = Z = 0;
 	
-	for(Lua::Variable& var : args)
-	{
-		if(var.GetType() == Lua::Type::Table)
-		{
-			cout << "\t" << var.GetTypeName() << ":\n";
-			PrintTable(var, 2);
-			continue;
-		}
-		cout << "\t" << var.GetTypeName() << ": " << var.ToString() << "\n";
-	}
+	if(len >= 1)
+		X = args[0].As<double>();
+	if(len >= 2)
+		Y = args[1].As<double>();
+	if(len >= 3)
+		Z = args[2].As<double>();
 	
-	return {};
+	auto ptr = std::make_shared<Vector>(X, Y, Z);
+	
+	return {state->GeneratePointer(ptr)};
 }
 
 int main(int argc, char** argv)
 {
 	using namespace Lua;
 	
+	State state;
+	
 	try
 	{
-		State state;
 		state.LoadStandardLibary();
+
+		state.GenerateMemberFunction("Length", &Vector::LuaLength);
+		state["Vector"] = state.GenerateFunction(LuaNewVector);
 		
-		// Generate a Lua variable for our function
-		Variable testfunc = state.GenerateFunction(TestFunc);
-		// Set it as a global variable
-		state["TestFunc"] = testfunc;
+		state.DoFile("/home/kobra/Dropbox/Projects/Lua++/Projects/test.lua"); 
 		
-		// load and execute a file
-		state.DoFile("test.lua"); 
-		
-		
-		state["GiveMeAString"]("hello"); // call the function GiveMeAString, with the argument "Hello"
 	}
 	catch(Lua::Exception ex)
 	{

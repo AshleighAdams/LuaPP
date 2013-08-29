@@ -887,7 +887,7 @@ namespace Lua
 		
 		if(_Global || _Registry)
 		{
-			throw RuntimeError("Variable::operator=() used on global table or reference table!");
+			throw RuntimeError("Variable::operator=() used on global or register table!");
 			//this->Push();
 			//lua_setglobal(*_State, _Key->As<string>().c_str()); // TODO: use Variable to index
 		}
@@ -919,7 +919,7 @@ namespace Lua
 		
 		if(_Global || _Registry)
 		{
-			throw RuntimeError("Variable::operator=() used on global table or reference table!");
+			throw RuntimeError("Variable::operator=() used on global table or register table!");
 		}
 		else
 		{

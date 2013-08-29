@@ -27,6 +27,7 @@ namespace Lua
 	namespace Jookia // this is Jookia's work, it allows me to not have to generate a function ptr in Lua
 	{
 	#define FUNCS_PER_TYPE 128 // increase this if you have problems
+	#define FUNCS_PER_TYPE_STR "128"
 	#define LOOP_FUNC(X) \
 		X(  0) X(  1) X(  2) X(  3) X(  4) X(  5) X(  6) X(  7) \
 		X(  8) X(  9) X( 10) X( 11) X( 12) X( 13) X( 14) X( 15) \
@@ -74,7 +75,7 @@ namespace Lua
 				}
 			LOOP_FUNC(TEST_ALLOC);
 			#undef TEST_ALLOC
-			throw std::runtime_error("No available C functions to use!");
+			throw std::runtime_error("No available C functions to use! Increase Lua::FUNCS_PER_TYPE (is at " FUNCS_PER_TYPE_STR ")");
 		}
 
 		template <class C_F, class F>
@@ -185,7 +186,6 @@ namespace Lua
 		inline Variable(State* state, lua_CFunction func); // for (int)(*)(lua_State*)
 		inline Variable(State* state, std::function<int(lua_State*)> func); // function<int(lua_State*)>
 		inline Variable(State* state, CFunction func); // function<list<Variable>(list<Variable>&)
-		
 		
 		inline Variable(State* state, const string& value);
 		inline Variable(State* state, const char* value);
@@ -330,6 +330,68 @@ namespace Lua
 			return Variable(this, (CFunction)func);
 		}
 		
+		/*
+		
+		TODO: MESSY!
+		
+		*/
+		
+		Variable GenerateFunction(std::function<void()> func)
+		{
+			CFunction proxy = [this, func](State* state, std::vector<Variable>& args) -> std::vector<Variable>
+			{
+				func();
+				return {};
+			};
+			
+			return Variable(this, (CFunction)proxy);
+		}
+		
+		template<typename T>
+		Variable GenerateFunction(std::function<void(T)> func)
+		{
+			CFunction proxy = [this, func](State* state, std::vector<Variable>& args) -> std::vector<Variable>
+			{
+				T arg_0 = args[0].As<T>();
+				func(arg_0);
+				return {};
+			};
+			
+			return Variable(this, (CFunction)proxy);
+		}
+		
+		template<typename R, typename T>
+		Variable GenerateFunction(std::function<R(T)> func)
+		{
+			CFunction proxy = [this, func](State* state, std::vector<Variable>& args) -> std::vector<Variable>
+			{
+				T arg_0 = args[0].As<T>();
+				R ret = func(arg_0);
+				return {state, ret};
+			};
+			
+			return Variable(this, (CFunction)proxy);
+		}
+		
+		template<typename R, typename T1, typename T2>
+		Variable GenerateFunction(std::function<R(T1, T2)> func)
+		{
+			CFunction proxy = [this, func](State* state, std::vector<Variable>& args) -> std::vector<Variable>
+			{
+				T1 arg_0 = args[0].As<T1>();
+				T2 arg_1 = args[1].As<T2>();
+				R ret = func(arg_0, arg_1);
+				return {state, ret};
+			};
+			
+			return Variable(this, (CFunction)proxy);
+		}
+				
+		/*
+		
+		END: MEssy
+		
+		*/
 		
 		template <typename T>
 		struct function_traits
@@ -668,7 +730,6 @@ namespace Lua
 		
 		Data.Ref = Reference::FromStack(state);
 	}
-	
 	
 	inline Variable::Variable(State* state, const string& value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
 	{
@@ -1082,6 +1143,18 @@ namespace Lua
 					throw RuntimeError("GetValue<bool>(): variable is not a boolean!");
 			}
 		};
+		
+		template<> struct GetValue<Variable&, int&>
+		{
+			void operator()(Variable& var, int& out)
+			{
+				if(var.GetType() == Type::Number)
+					out = (int)var.Data.Real;
+				else
+					throw RuntimeError("GetValue<int>(): variable is not a boolean!");
+			}
+		};
+		
 	}
 }
 

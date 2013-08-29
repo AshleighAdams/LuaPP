@@ -59,6 +59,12 @@ std::vector<Lua::Variable> LuaNewVector(Lua::State* state, std::vector<Lua::Vari
 	return {state->GeneratePointer(ptr)};
 }
 
+int Add(int a, int b)
+{
+	return a + b;
+}
+
+
 int main(int argc, char** argv)
 {
 	using namespace Lua;
@@ -71,7 +77,9 @@ int main(int argc, char** argv)
 
 		state.GenerateMemberFunction("Length", &Vector::LuaLength);
 		state.GenerateMemberFunction("Normalize", &Vector::LuaNormalize);
+		
 		state["Vector"] = state.GenerateFunction(LuaNewVector);
+		state["Add"] = state.GenerateFunction<int, int, int>(Add);
 		
 		state.DoFile("/home/kobra/Dropbox/Projects/Lua++/Projects/test.lua"); 
 		

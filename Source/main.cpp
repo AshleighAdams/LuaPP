@@ -69,6 +69,8 @@ int main(int argc, char** argv)
 {
 	using namespace Lua;
 	
+	cout << sizeof(Variable) << "\n";
+	
 	State state;
 	
 	try

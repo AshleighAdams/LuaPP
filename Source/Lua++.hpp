@@ -171,13 +171,13 @@ namespace Lua
 		bool                         _Registry;
 		
 		bool _IsReference;
-		struct {
-			void* Pointer;
-			string String;
+		std::shared_ptr<Reference> Ref;
+		string String;
+		
+		union {
 			int Integer;
 			double Real;
 			bool Boolean;
-			std::shared_ptr<Reference> Ref;
 		} Data;
 		
 	public:
@@ -640,7 +640,7 @@ namespace Lua
 			break;
 		case Type::String:
 		{
-			Data.String = lua_tostring(*_State, -1);
+			String = lua_tostring(*_State, -1);
 			break;
 		}
 		case Type::Number:
@@ -652,7 +652,7 @@ namespace Lua
 		case Type::Function:
 		case Type::Table:
 		case Type::UserData:
-			Data.Ref = Reference::FromStack(_State);
+			Ref = Reference::FromStack(_State);
 			_IsReference = true;
 			break;
 		default:
@@ -670,11 +670,9 @@ namespace Lua
 		_Global = false;
 		_Registry = false;
 		
-		Data.Ref = nullptr;
-		Data.Boolean = false;
+		Ref = nullptr;
 		Data.Integer = 0;
-		Data.String = "";
-		Data.Pointer = nullptr;
+		String = "";
 		
 		switch(type)
 		{
@@ -683,7 +681,7 @@ namespace Lua
 			break;
 		case Type::Table:
 			lua_newtable(*_State);
-			Data.Ref = Reference::FromStack(_State);
+			Ref = Reference::FromStack(_State);
 			_IsReference = true;
 			break;
 		}
@@ -698,7 +696,7 @@ namespace Lua
 		_Registry = false;
 		
 		lua_pushcfunction(*_State, func);
-		Data.Ref = Reference::FromStack(state);
+		Ref = Reference::FromStack(state);
 	}
 	
 	inline Variable::Variable(State* state, CFunction func)
@@ -743,7 +741,7 @@ namespace Lua
 		lua_CFunction ptr = Lua::Jookia::allocCPtr<lua_CFunction>(proxy);
 		lua_pushcfunction(*state, ptr);
 		
-		Data.Ref = Reference::FromStack(state);
+		Ref = Reference::FromStack(state);
 	}
 	
 	inline Variable::Variable(State* state, const string& value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
@@ -754,7 +752,7 @@ namespace Lua
 		_Global = false;
 		_Registry = false;
 		
-		Data.String = value;
+		String = value;
 	}
 	
 	inline Variable::Variable(State* state, const char* value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
@@ -764,7 +762,7 @@ namespace Lua
 		_Type = Type::String;
 		_Global = false;
 		_Registry = false;
-		Data.String = value;
+		String = value;
 	}
 	
 	inline Variable::Variable(State* state, bool value) : _State(state), _Key(nullptr), _KeyTo(nullptr)
@@ -814,7 +812,7 @@ namespace Lua
 	inline Variable::~Variable()
 	{
 		if(_IsReference) // TODO: wtf, _State is already de-referenced?
-			;//luaL_unref(*_State, 0, Data.Reference);
+			;//luaL_unref(*_State, 0, Reference);
 	}
 	
 	inline void Variable::SetKey(std::shared_ptr<Variable> key, Variable* to)
@@ -822,7 +820,7 @@ namespace Lua
 		_Key = nullptr;
 		_Key = key;
 		
-		_KeyTo = to->Data.Ref;
+		_KeyTo = to->Ref;
 	}
 	
 	inline string Variable::ToString()
@@ -834,7 +832,7 @@ namespace Lua
 		case Type::Nil:
 			return "nil";
 		case Type::String:
-			return Data.String;
+			return String;
 		case Type::Number:
 			ss << Data.Real;
 			return ss.str();
@@ -882,6 +880,11 @@ namespace Lua
 		this->_Type = tmp._Type;
 		this->Data = tmp.Data;
 		
+		if(_Type == Type::String)
+			this->String = tmp.String;
+		else if(_IsReference)
+			this->Ref = tmp.Ref;
+		
 		if(_Global || _Registry)
 		{
 			throw RuntimeError("Variable::operator=() used on global table or reference table!");
@@ -907,6 +910,12 @@ namespace Lua
 		this->_IsReference = val._IsReference;
 		this->_Type = val._Type;
 		this->Data = val.Data;
+		
+		if(_Type == Type::String)
+			this->String = val.String;
+		else if(_IsReference)
+			this->Ref = val.Ref;
+		
 		
 		if(_Global || _Registry)
 		{
@@ -942,6 +951,11 @@ namespace Lua
 			this->_IsReference = tmp._IsReference;
 			this->_Type = tmp._Type;
 			this->Data = tmp.Data;
+			
+			if(_Type == Type::String)
+				this->String = tmp.String;
+			else if(_IsReference)
+				this->Ref = tmp.Ref;
 			
 			_KeyTo->Push();
 			_Key->Push();
@@ -1099,7 +1113,7 @@ namespace Lua
 			lua_pushnil(*_State);
 			break;
 		case Type::String:
-			lua_pushstring(*_State, Data.String.c_str());
+			lua_pushstring(*_State, String.c_str());
 			break;
 		case Type::Number:
 			lua_pushnumber(*_State, Data.Real);
@@ -1110,7 +1124,7 @@ namespace Lua
 		case Type::Function:
 		case Type::Table:
 		case Type::UserData:
-			Data.Ref->Push();
+			Ref->Push();
 			break;
 		default:
 			throw RuntimeError("The type `" + GetTypeName() + "' hasn't been implimented!");
@@ -1185,7 +1199,7 @@ namespace Lua
 			void operator()(Variable& var, string& out)
 			{
 				if(var.GetType() == Type::String)
-					out = var.Data.String;
+					out = var.String;
 				else
 					throw RuntimeError("GetValue<string>(): variable is not a string!");
 			}

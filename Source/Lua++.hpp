@@ -163,12 +163,12 @@ namespace Lua
 	class Variable
 	{
 	public:
-		Type												_Type;
-		State*											_State;
-		std::shared_ptr<Variable>	 _Key;
-		std::shared_ptr<Reference>	_KeyTo;
-		bool												_Global;
-		bool												_Registry;
+		Type                         _Type;
+		State*                       _State;
+		std::shared_ptr<Variable>    _Key;
+		std::shared_ptr<Reference>   _KeyTo;
+		bool                         _Global;
+		bool                         _Registry;
 		
 		bool _IsReference;
 		struct {
@@ -372,7 +372,7 @@ namespace Lua
 			
 			return Variable(this, (CFunction)proxy);
 		}
-		
+		/*
 		template<typename R, typename T1, typename T2>
 		Variable GenerateFunction(std::function<R(T1, T2)> func)
 		{
@@ -386,7 +386,8 @@ namespace Lua
 			
 			return Variable(this, (CFunction)proxy);
 		}
-				
+		*/
+		
 		/*
 		
 		END: MEssy
@@ -406,8 +407,8 @@ namespace Lua
 			enum { arity = sizeof...(Args) };
 			// arity is the number of arguments.
 
-			typedef ReturnType	result_type;
-			typedef ClassType	 class_type;
+			typedef ReturnType   result_type;
+			typedef ClassType    class_type;
 
 			template <size_t i>
 			struct arg
@@ -1155,7 +1156,63 @@ namespace Lua
 			}
 		};
 		
+		template<typename T>
+		struct GetValue<Variable&, std::shared_ptr<T>&>
+		{
+			void operator()(Variable& var, std::shared_ptr<T>& out)
+			{
+				State* _State = var._State;
+				if(var.GetType() != Type::Table)
+				{
+					throw RuntimeError("GetValue<std::shared_ptr<T>>(): variable is not a pointer!");
+					out = nullptr;
+				}
+				
+				Variable meta = var.MetaTable();
+				
+				if(meta["__typeid"].As<string>() != typeid(T).name())
+				{
+					throw RuntimeError(string("As<shared_ptr<") + typeid(T).name() + ">>(): incorrect pointer type!");
+					out = nullptr;
+					return;
+				}
+				
+				meta["__shared_ptr"].Push();
+				std::shared_ptr<T>* ptr = (std::shared_ptr<T>*)lua_touserdata(*_State, -1);
+				
+				assert(ptr);
+				assert(*ptr);
+				
+				out = *ptr;
+			}
+		};
+		
 	}
 }
+
+/*
+if(_Type != Type::Table)
+		{
+			throw RuntimeError(string("AsPointer<") + typeid(T).name() + ">(): variable is not a pointer");
+			return nullptr;
+		}
+		
+		Variable meta = this->MetaTable();
+		
+		
+		if(this->MetaTable()["__typeid"].As<string>() != typeid(T).name())
+		{
+			throw RuntimeError(string("AsPointer<") + typeid(T).name() + ">(): incorrect type!");
+			return nullptr;
+		}
+		
+		this->MetaTable()["__shared_ptr"].Push();
+		std::shared_ptr<T>* ptr = (std::shared_ptr<T>*)lua_touserdata(*_State, -1);
+		
+		assert(ptr);
+		assert(*ptr);
+		
+		return *ptr;
+*/
 
 #endif

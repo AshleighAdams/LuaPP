@@ -30,7 +30,7 @@ public:
 
 	std::vector<Lua::Variable> LuaNormalize(Lua::State* state, std::vector<Lua::Variable>& args)
 	{
-		auto vec = args[0].AsPointer<Vector>();
+		auto vec = args[0].As<std::shared_ptr<Vector>>();
 
 		double len = this->Length();
 		X /= len;
@@ -79,7 +79,7 @@ int main(int argc, char** argv)
 		state.GenerateMemberFunction("Normalize", &Vector::LuaNormalize);
 		
 		state["Vector"] = state.GenerateFunction(LuaNewVector);
-		state["Add"] = state.GenerateFunction<int, int, int>(Add);
+		//state["Add"] = state.GenerateFunction<int(int, int)>(Add);
 		
 		state.DoFile("/home/kobra/Dropbox/Projects/Lua++/Projects/test.lua"); 
 		

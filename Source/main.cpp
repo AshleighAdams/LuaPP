@@ -81,6 +81,8 @@ int main(int argc, char** argv)
 		state["Vector"] = state.GenerateFunction(LuaNewVector);
 		//state["Add"] = state.GenerateFunction<int(int, int)>(Add);
 		
+		assert(Variable(&state, 5) == Variable(&state, 5));
+		
 		state.DoFile("/home/kobra/Dropbox/Projects/Lua++/Projects/test.lua"); 
 		
 		state["TestFunction"]("Hello, Ddrl46");

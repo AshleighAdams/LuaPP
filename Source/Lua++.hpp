@@ -203,6 +203,14 @@ namespace Lua
 		template<typename T>
 		Variable operator[](const T& val);
 		
+		bool operator==(Variable other); // from these 2 methods, the rest must be drived
+		bool operator<(Variable other); /// from ...
+		
+		bool operator!=(Variable other);
+		bool operator<=(Variable other);
+		bool operator>(Variable other);
+		bool operator>=(Variable other);
+		
 		inline ~Variable();
 	
 		inline void SetKey(std::shared_ptr<Variable> key, Variable* to);
@@ -594,7 +602,7 @@ namespace Lua
 			string err = lua_tostring(*_State, -1);
 			lua_pop(*_State, 1);
 			
-			throw RuntimeError();
+			throw RuntimeError(err);
 			return {};
 		}
 		
@@ -970,6 +978,60 @@ namespace Lua
 		
 		lua_pop(*_State, 1);
 		return ret;
+	}
+	
+	inline bool Variable::operator==(Variable other)
+	{
+		try
+		{
+			this->Push();
+			other.Push();
+			bool ret = lua_compare(*_State, -2, -1, LUA_OPEQ) == 1;
+			lua_pop(*_State, 2);
+			return ret;
+		}
+		catch(...)
+		{
+			lua_pop(*_State, 2);
+			throw;
+		}
+	}
+	
+	inline bool Variable::operator<(Variable other)
+	{
+		try
+		{
+			this->Push();
+			other.Push();
+			bool ret = lua_compare(*_State, -2, -1, LUA_OPLT) == 1;
+			lua_pop(*_State, 2);
+			return ret;
+		}
+		catch(...)
+		{
+			lua_pop(*_State, 2);
+			throw;
+		}
+	}
+	
+	inline bool Variable::operator!=(Variable other)
+	{
+		return !operator==(other);
+	}
+	
+	inline bool Variable::operator<=(Variable other)
+	{
+		return operator==(other) || operator<(other);
+	}
+	
+	inline bool Variable::operator>(Variable other)
+	{
+		return operator!=(other) && !operator<(other);
+	}
+	
+	inline bool Variable::operator>=(Variable other)
+	{
+		return operator==(other) || operator>(other);
 	}
 	
 	inline std::vector<std::pair<Variable, Variable>> Variable::pairs()

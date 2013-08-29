@@ -590,9 +590,15 @@ namespace Lua
 		
 		
 		if (lua_pcall(*_State, argc, LUA_MULTRET, 0))
-			throw RuntimeError(lua_tostring(*_State, -1));
+		{
+			string err = lua_tostring(*_State, -1);
+			lua_pop(*_State, 1);
+			
+			throw RuntimeError();
+			return {};
+		}
 		
-		if(lua_gettop(*_State) == top)
+		if(lua_gettop(*_State) == top) // no returns
 			return {};
 		
 		std::vector<Variable> rets;

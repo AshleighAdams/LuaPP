@@ -27,6 +27,18 @@ public:
 	{
 		return {{state, Length()}};
 	}
+
+	std::vector<Lua::Variable> LuaNormalize(Lua::State* state, std::vector<Lua::Variable>& args)
+	{
+		auto vec = args[0].AsPointer<Vector>();
+
+		double len = this->Length();
+		X /= len;
+		Y /= len;
+		Z /= len;
+		
+		return {};
+	}
 };
 
 std::vector<Lua::Variable> LuaNewVector(Lua::State* state, std::vector<Lua::Variable>& args)
@@ -58,10 +70,12 @@ int main(int argc, char** argv)
 		state.LoadStandardLibary();
 
 		state.GenerateMemberFunction("Length", &Vector::LuaLength);
+		state.GenerateMemberFunction("Normalize", &Vector::LuaNormalize);
 		state["Vector"] = state.GenerateFunction(LuaNewVector);
 		
 		state.DoFile("/home/kobra/Dropbox/Projects/Lua++/Projects/test.lua"); 
 		
+		state["TestFunction"]("Hello, Ddrl46");
 	}
 	catch(Lua::Exception ex)
 	{

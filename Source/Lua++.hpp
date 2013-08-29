@@ -24,6 +24,92 @@ namespace Lua
 {
 	using string = std::string;
 	
+	namespace Jookia // this is Jookia's work, it allows me to not have to generate a function ptr in Lua
+	{
+	#define FUNCS_PER_TYPE 128 // increase this if you have problems
+	#define LOOP_FUNC(X) \
+		X(  0) X(  1) X(  2) X(  3) X(  4) X(  5) X(  6) X(  7) \
+		X(  8) X(  9) X( 10) X( 11) X( 12) X( 13) X( 14) X( 15) \
+		X( 16) X( 17) X( 18) X( 19) X( 20) X( 21) X( 22) X( 23) \
+		X( 24) X( 25) X( 26) X( 27) X( 28) X( 29) X( 30) X( 31) \
+		X( 32) X( 33) X( 34) X( 35) X( 36) X( 37) X( 38) X( 39) \
+		X( 40) X( 41) X(42 ) X( 43) X( 44) X( 45) X( 46) X( 47) \
+		X( 48) X( 49) X( 50) X( 51) X( 52) X( 53) X( 54) X( 55) \
+		X( 56) X( 57) X( 58) X( 59) X( 60) X( 61) X( 62) X( 63) \
+		X( 64) X( 65) X( 66) X( 67) X( 68) X( 69) X( 70) X( 71) \
+		X( 72) X( 73) X( 74) X( 75) X( 76) X( 77) X( 78) X( 79) \
+		X( 80) X( 81) X( 82) X( 83) X( 84) X( 85) X( 86) X( 87) \
+		X( 88) X( 89) X( 90) X( 91) X( 92) X( 93) X( 94) X( 95) \
+		X( 96) X( 97) X( 98) X( 99) X(100) X(101) X(102) X(103) \
+		X(104) X(105) X(106) X(107) X(108) X(109) X(110) X(111) \
+		X(112) X(113) X(114) X(115) X(116) X(117) X(118) X(119) \
+		X(120) X(121) X(122) X(123) X(124) X(125) X(126) X(127) \
+		X(128)
+		
+
+
+		template <typename F>
+		struct CPP_FUNCTIONS
+		{
+			static F func[FUNCS_PER_TYPE];
+		};
+
+		template <typename F>
+		F CPP_FUNCTIONS<F>::func[FUNCS_PER_TYPE];
+
+		template <class F, int N, class R, class... A>
+		R C_FUNCTION(A... args)
+		{
+			return CPP_FUNCTIONS<F>::func[N](args...);
+		}
+
+		template <class C_F, class F>
+		C_F SEARCH_C_ALLOC(F function)
+		{
+			#define TEST_ALLOC(N) \
+				if(!CPP_FUNCTIONS<F>::func[N]) \
+				{ \
+					CPP_FUNCTIONS<F>::func[N] = function; \
+					return C_FUNCTION<F, N>; \
+				}
+			LOOP_FUNC(TEST_ALLOC);
+			#undef TEST_ALLOC
+			throw std::runtime_error("No available C functions to use!");
+		}
+
+		template <class C_F, class F>
+		bool SEARCH_C_FREE(C_F function)
+		{
+			#define TEST_FREE(N) \
+				{ \
+					C_F func = C_FUNCTION<F, N>; \
+					if(func == function) \
+					{ \
+						CPP_FUNCTIONS<F>::func[N] = nullptr; \
+						return true; \
+					} \
+				}
+			LOOP_FUNC(TEST_FREE);
+			#undef TEST_FREE
+			return false;
+		}
+
+		template <class C_F, class F>
+		C_F allocCPtr(F function)
+		{
+			return SEARCH_C_ALLOC<C_F, F>(function);
+		}
+
+		template <class C_F, class F>
+		bool freeCPtr(C_F function)
+		{
+			return SEARCH_C_FREE<C_F, F>(function);
+		}
+
+		#undef FUNCS_PER_TYPE
+		#undef LOOP_FUNC
+	}
+	
 	class Exception : public std::exception
 	{
 		string _what;
@@ -76,12 +162,12 @@ namespace Lua
 	class Variable
 	{
 	public:
-		Type                        _Type;
-		State*                      _State;
-		std::shared_ptr<Variable>   _Key;
-		std::shared_ptr<Reference>  _KeyTo;
-		bool                        _Global;
-		bool                        _Registry;
+		Type												_Type;
+		State*											_State;
+		std::shared_ptr<Variable>	 _Key;
+		std::shared_ptr<Reference>	_KeyTo;
+		bool												_Global;
+		bool												_Registry;
 		
 		bool _IsReference;
 		struct {
@@ -258,8 +344,8 @@ namespace Lua
 			enum { arity = sizeof...(Args) };
 			// arity is the number of arguments.
 
-			typedef ReturnType  result_type;
-			typedef ClassType   class_type;
+			typedef ReturnType	result_type;
+			typedef ClassType	 class_type;
 
 			template <size_t i>
 			struct arg
@@ -380,7 +466,7 @@ namespace Lua
 	}
 	
 	// ---------------------
-	//   Variable imp
+	//	 Variable imp
 	// ---------------------
 	namespace _Variable
 	{
@@ -537,61 +623,6 @@ namespace Lua
 		lua_pushcfunction(*_State, func);
 		Data.Ref = Reference::FromStack(state);
 	}
-		
-	inline bool replace(std::string& str, const std::string& from, const std::string& to)
-	{
-		size_t start_pos = str.find(from);
-		if(start_pos == std::string::npos)
-			return false;
-		str.replace(start_pos, from.length(), to);
-		return true;
-	}
-	
-	static int FUNC_ID = {};
-	static std::unordered_map<int, std::pair<State*, CFunction>> REGISTERED = {};
-
-	static int Proxy(lua_State* L)
-	{
-		int func = lua_tonumber(L, 1);
-		int argc = lua_gettop(L);
-
-		auto pair = REGISTERED[func];
-		State* state = pair.first;
-		
-		
-		if(L != (lua_State*)*state)
-		{
-			lua_pushstring(L, "this function belongs to a different Lua state!");
-			lua_error(L);
-			return 0;
-		}
-
-		std::vector<Variable> args;
-		
-		for(int i = 1; i < argc; i++) // the first one is the target function
-			args.push_back({state});
-		
-		std::vector<Variable> flipped;
-		for(Variable& var : args)
-			flipped.push_back(var);
-
-		try
-		{
-			std::vector<Variable> rets = pair.second(state, flipped);
-			
-			for(Variable& var : rets)
-				var.Push();
-			
-			return rets.size();
-		}
-		catch(Exception ex)
-		{
-			lua_pushstring(*state, ex.what());
-			lua_error(*state);
-			
-			return {};
-		}
-	}
 	
 	inline Variable::Variable(State* state, CFunction func)
 	{
@@ -601,43 +632,40 @@ namespace Lua
 		_Global = false;
 		_Registry = false;
 		
-		FUNC_ID++;
-		REGISTERED[FUNC_ID] = {state, func};
-		
-		string code = R"code(
-			return function(...)
-				local args = {...}
-				local call_c_func = args[1]
-				local funcid = args[2]
+		std::function<int(lua_State*)> proxy = [func, state](lua_State* L) -> int
+		{
+			int argc = lua_gettop(L);
+			
+			std::vector<Variable> args;
+			
+			for(int i = 0; i < argc; i++) // the first one is the target function
+				args.push_back({state});
+			
+			std::vector<Variable> flipped;
+			for(Variable& var : args)
+				flipped.push_back(var);
+
+			try
+			{
+				std::vector<Variable> rets = func(state, flipped);
 				
-				return function(...) return call_c_func(funcid, ...) end
-			end
-		)code";
+				for(Variable& var : rets)
+					var.Push();
+				
+				return rets.size();
+			}
+			catch(Exception ex)
+			{
+				lua_pushstring(*state, ex.what());
+				lua_error(*state);
+				
+				return 0;
+			}
+		};
 		
-		state->LoadString(code); // load the string, and invoke
-		if(lua_pcall(*state, 0, 1, 0))
-		{
-			string err = lua_tostring(*state, -1);
-			lua_pop(*state, 1);
-			throw RuntimeError(err);
-		}
+		lua_CFunction ptr = Lua::Jookia::allocCPtr<lua_CFunction>(proxy);
+		lua_pushcfunction(*state, ptr);
 		
-		assert(lua_isfunction(*state, -1));
-		
-		// stack: func
-		lua_pushcfunction(*state, &Proxy);
-		// stack: func, cfunc
-		lua_pushnumber(*state, FUNC_ID);
-		// stack: func, cfunc, funcid
-		
-		if(lua_pcall(*state, 2, 1, 0))
-		{
-			string err = lua_tostring(*state, -1);
-			lua_pop(*state, 1);
-			throw RuntimeError(err);
-		}
-		
-		// stack: proxy
 		Data.Ref = Reference::FromStack(state);
 	}
 	

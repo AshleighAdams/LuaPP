@@ -1,5 +1,6 @@
 #!/bin/bash
 set -x #make bash echo the commands
+set -e #make bash halt on error
 
 ./GenerateProject.lua
 cd Projects

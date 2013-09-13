@@ -71,7 +71,7 @@ int main(int argc, char** argv)
 	
 	cout << sizeof(Variable) << "\n";
 	
-	State state
+	State state;
 	
 	try
 	{

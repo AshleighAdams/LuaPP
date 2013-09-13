@@ -1,6 +1,7 @@
 #!/bin/bash
 set -x #make bash echo the commands
 
+pwd
 ./GenerateProject.lua
 cd Projects
 make config=debug

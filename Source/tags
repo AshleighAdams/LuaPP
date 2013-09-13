@@ -1,0 +1,149 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+As	Lua++.hpp	/^	T Variable::As()$/;"	f	class:Lua::Variable
+AsPointer	Lua++.hpp	/^	std::shared_ptr<T> Variable::AsPointer()$/;"	f	class:Lua::Variable
+Boolean	Lua++.hpp	/^			bool Boolean;$/;"	m	union:Lua::Variable::__anon1
+Boolean	Lua++.hpp	/^		Boolean = 1,$/;"	e	enum:Lua::Type
+CFunction	Lua++.hpp	/^	typedef std::function<std::vector<Variable>(State*, std::vector<Variable>&)> CFunction;$/;"	t	namespace:Lua
+CPP_FUNCTIONS	Lua++.hpp	/^		struct CPP_FUNCTIONS$/;"	s	namespace:Lua::Jookia
+C_FUNCTION	Lua++.hpp	/^		R C_FUNCTION(A... args)$/;"	f	namespace:Lua::Jookia
+CompileError	Lua++.hpp	/^		CompileError(const string& what) : Exception(what) {}$/;"	f	class:Lua::CompileError
+CompileError	Lua++.hpp	/^	class CompileError : public Exception$/;"	c	namespace:Lua
+Data	Lua++.hpp	/^		} Data;$/;"	m	class:Lua::Variable	typeref:union:Lua::Variable::__anon1
+DoFile	Lua++.hpp	/^		void DoFile(const string& file)$/;"	f	class:Lua::State
+DoString	Lua++.hpp	/^		void DoString(const string& code, const string& name = "DoString") throw(CompileError, RuntimeError)$/;"	f	class:Lua::State
+Exception	Lua++.hpp	/^		Exception(const string& what) : std::exception(), _what(what) {}$/;"	f	class:Lua::Exception
+Exception	Lua++.hpp	/^	class Exception : public std::exception$/;"	c	namespace:Lua
+Extensions	Lua++.hpp	/^	namespace Extensions$/;"	n	namespace:Lua
+FUNCS_PER_TYPE	Lua++.hpp	110;"	d
+FUNCS_PER_TYPE	Lua++.hpp	29;"	d
+FUNCS_PER_TYPE_STR	Lua++.hpp	30;"	d
+FromStack	Lua++.hpp	/^		static std::shared_ptr<Reference> FromStack(State* state)$/;"	f	class:Lua::Reference
+Function	Lua++.hpp	/^		Function,$/;"	e	enum:Lua::Type
+GenerateFunction	Lua++.hpp	/^		Variable GenerateFunction(CFunction func)$/;"	f	class:Lua::State
+GenerateFunction	Lua++.hpp	/^		Variable GenerateFunction(std::function<R(T)> func)$/;"	f	class:Lua::State
+GenerateFunction	Lua++.hpp	/^		Variable GenerateFunction(std::function<void()> func)$/;"	f	class:Lua::State
+GenerateFunction	Lua++.hpp	/^		Variable GenerateFunction(std::function<void(T)> func)$/;"	f	class:Lua::State
+GenerateMemberFunction	Lua++.hpp	/^		void GenerateMemberFunction(const std::string& name, std::vector<Variable> (T::*f)(State*, std::vector<Variable>&))$/;"	f	class:Lua::State
+GeneratePointer	Lua++.hpp	/^		Variable GeneratePointer(std::shared_ptr<T> ptr)$/;"	f	class:Lua::State
+GetEnviroment	Lua++.hpp	/^		Variable GetEnviroment()$/;"	f	class:Lua::State
+GetRegistry	Lua++.hpp	/^		Variable GetRegistry()$/;"	f	class:Lua::State
+GetType	Lua++.hpp	/^	inline Type Variable::GetType()$/;"	f	class:Lua::Variable
+GetTypeName	Lua++.hpp	/^	inline string Variable::GetTypeName()$/;"	f	class:Lua::Variable
+GetValue	Lua++.hpp	/^		struct GetValue<Variable&, std::shared_ptr<T>&>$/;"	s	namespace:Lua::Extensions
+GetValue	Lua++.hpp	/^		template<> struct GetValue<Variable&, bool&>$/;"	s	namespace:Lua::Extensions
+GetValue	Lua++.hpp	/^		template<> struct GetValue<Variable&, double&>$/;"	s	namespace:Lua::Extensions
+GetValue	Lua++.hpp	/^		template<> struct GetValue<Variable&, int&>$/;"	s	namespace:Lua::Extensions
+GetValue	Lua++.hpp	/^		template<> struct GetValue<Variable&, string&>$/;"	s	namespace:Lua::Extensions
+Integer	Lua++.hpp	/^			int Integer;$/;"	m	union:Lua::Variable::__anon1
+Is	Lua++.hpp	/^	bool Variable::Is()$/;"	f	class:Lua::Variable
+IsNil	Lua++.hpp	/^		bool IsNil()$/;"	f	class:Lua::Variable
+Jookia	Lua++.hpp	/^	namespace Jookia \/\/ this is Jookia's work, it allows me to not have to generate a function ptr in Lua$/;"	n	namespace:Lua
+LOOP_FUNC	Lua++.hpp	111;"	d
+LOOP_FUNC	Lua++.hpp	31;"	d
+LUAPP_HPP	Lua++.hpp	2;"	d
+LightUserData	Lua++.hpp	/^		LightUserData,$/;"	e	enum:Lua::Type
+LoadFile	Lua++.hpp	/^		void LoadFile(const string& file)$/;"	f	class:Lua::State
+LoadStandardLibary	Lua++.hpp	/^		void LoadStandardLibary()$/;"	f	class:Lua::State
+LoadString	Lua++.hpp	/^		void LoadString(const string& code, const string& name = "LoadString") throw(CompileError)$/;"	f	class:Lua::State
+Lua	Lua++.hpp	/^namespace Lua$/;"	n
+MetaTable	Lua++.hpp	/^	inline Variable Variable::MetaTable()$/;"	f	class:Lua::Variable
+NewTable	Lua++.hpp	/^		NewTable(){}$/;"	f	class:Lua::NewTable
+NewTable	Lua++.hpp	/^	class NewTable$/;"	c	namespace:Lua
+Nil	Lua++.hpp	/^		Nil = 0,$/;"	e	enum:Lua::Type
+None	Lua++.hpp	/^		None = -1,$/;"	e	enum:Lua::Type
+Number	Lua++.hpp	/^		Number,$/;"	e	enum:Lua::Type
+Push	Lua++.hpp	/^		void Push()$/;"	f	class:Lua::Reference
+Push	Lua++.hpp	/^	inline void Variable::Push()$/;"	f	class:Lua::Variable
+PushRecursive	Lua++.hpp	/^		inline void PushRecursive(State& state, int& argc)$/;"	f	namespace:Lua::_Variable
+PushRecursive	Lua++.hpp	/^		inline void PushRecursive(State& state, int& argc, Variable& var)$/;"	f	namespace:Lua::_Variable
+PushRecursive	Lua++.hpp	/^		inline void PushRecursive(State& state, int& argc, std::vector<Variable> vec)$/;"	f	namespace:Lua::_Variable
+PushRecursive	Lua++.hpp	/^		void PushRecursive(State& state, int& argc, Args... args)$/;"	f	namespace:Lua::_Variable
+PushRecursive	Lua++.hpp	/^		void PushRecursive(State& state, int& argc, T arg)$/;"	f	namespace:Lua::_Variable
+PushRecursive	Lua++.hpp	/^		void PushRecursive(State& state, int& argc, T arg, Args... args)$/;"	f	namespace:Lua::_Variable
+Real	Lua++.hpp	/^			double Real;$/;"	m	union:Lua::Variable::__anon1
+Ref	Lua++.hpp	/^		std::shared_ptr<Reference> Ref;$/;"	m	class:Lua::Variable
+Reference	Lua++.hpp	/^		Reference(State* state, int ref) : _State(state), _Ref(ref)$/;"	f	class:Lua::Reference
+Reference	Lua++.hpp	/^	class Reference \/\/ to be used with shared_ptr$/;"	c	namespace:Lua
+RuntimeError	Lua++.hpp	/^		RuntimeError(const string& what) : Exception(what) {}$/;"	f	class:Lua::RuntimeError
+RuntimeError	Lua++.hpp	/^	class RuntimeError : public Exception$/;"	c	namespace:Lua
+SEARCH_C_ALLOC	Lua++.hpp	/^		C_F SEARCH_C_ALLOC(F function)$/;"	f	namespace:Lua::Jookia
+SEARCH_C_FREE	Lua++.hpp	/^		bool SEARCH_C_FREE(C_F function)$/;"	f	namespace:Lua::Jookia
+SetKey	Lua++.hpp	/^	inline void Variable::SetKey(std::shared_ptr<Variable> key, Variable* to)$/;"	f	class:Lua::Variable
+SetMetaTable	Lua++.hpp	/^	inline Variable Variable::SetMetaTable(Variable tbl)$/;"	f	class:Lua::Variable
+State	Lua++.hpp	/^		State() : _State(luaL_newstate())$/;"	f	class:Lua::State
+State	Lua++.hpp	/^	class State$/;"	c	namespace:Lua
+String	Lua++.hpp	/^		String,$/;"	e	enum:Lua::Type
+String	Lua++.hpp	/^		string String;$/;"	m	class:Lua::Variable
+TEST_ALLOC	Lua++.hpp	70;"	d
+TEST_ALLOC	Lua++.hpp	77;"	d
+TEST_FREE	Lua++.hpp	84;"	d
+TEST_FREE	Lua++.hpp	94;"	d
+Table	Lua++.hpp	/^		Table,$/;"	e	enum:Lua::Type
+Thread	Lua++.hpp	/^		Thread$/;"	e	enum:Lua::Type
+ToString	Lua++.hpp	/^	inline string Variable::ToString()$/;"	f	class:Lua::Variable
+Type	Lua++.hpp	/^	enum Type$/;"	g	namespace:Lua
+UserData	Lua++.hpp	/^		UserData,$/;"	e	enum:Lua::Type
+Variable	Lua++.hpp	/^	Variable::Variable(State* state, lua_CFunction func)$/;"	f	class:Lua::Variable
+Variable	Lua++.hpp	/^	class Variable$/;"	c	namespace:Lua
+Variable	Lua++.hpp	/^	inline Variable::Variable(State* state) : _State(state), _Key(nullptr), _KeyTo(nullptr)$/;"	f	class:Lua::Variable
+Variable	Lua++.hpp	/^	inline Variable::Variable(State* state, CFunction func)$/;"	f	class:Lua::Variable
+Variable	Lua++.hpp	/^	inline Variable::Variable(State* state, Type type) : _State(state), _Key(nullptr), _KeyTo(nullptr)$/;"	f	class:Lua::Variable
+Variable	Lua++.hpp	/^	inline Variable::Variable(State* state, bool value) : _State(state), _Key(nullptr), _KeyTo(nullptr)$/;"	f	class:Lua::Variable
+Variable	Lua++.hpp	/^	inline Variable::Variable(State* state, const char* value) : _State(state), _Key(nullptr), _KeyTo(nullptr)$/;"	f	class:Lua::Variable
+Variable	Lua++.hpp	/^	inline Variable::Variable(State* state, const string& value) : _State(state), _Key(nullptr), _KeyTo(nullptr)$/;"	f	class:Lua::Variable
+Variable	Lua++.hpp	/^	inline Variable::Variable(State* state, double value) : _State(state), _Key(nullptr), _KeyTo(nullptr)$/;"	f	class:Lua::Variable
+Variable	Lua++.hpp	/^	inline Variable::Variable(State* state, int value) : _State(state), _Key(nullptr), _KeyTo(nullptr)$/;"	f	class:Lua::Variable
+Variable	Lua++.hpp	/^	inline Variable::Variable(State* state, long long value) : _State(state), _Key(nullptr), _KeyTo(nullptr)$/;"	f	class:Lua::Variable
+_GenerateMemberFunction	Lua++.hpp	/^		void _GenerateMemberFunction(const string& classname, const string& name, CFunction func)$/;"	f	class:Lua::State
+_Global	Lua++.hpp	/^		bool                         _Global;$/;"	m	class:Lua::Variable
+_IsReference	Lua++.hpp	/^		bool _IsReference;$/;"	m	class:Lua::Variable
+_Key	Lua++.hpp	/^		std::shared_ptr<Variable>    _Key;$/;"	m	class:Lua::Variable
+_KeyTo	Lua++.hpp	/^		std::shared_ptr<Reference>   _KeyTo;$/;"	m	class:Lua::Variable
+_Ref	Lua++.hpp	/^		int _Ref;$/;"	m	class:Lua::Reference
+_Registry	Lua++.hpp	/^		bool                         _Registry;$/;"	m	class:Lua::Variable
+_State	Lua++.hpp	/^		State*                       _State;$/;"	m	class:Lua::Variable
+_State	Lua++.hpp	/^		State* _State;$/;"	m	class:Lua::Reference
+_State	Lua++.hpp	/^		lua_State* _State;$/;"	m	class:Lua::State
+_Type	Lua++.hpp	/^		Type                         _Type;$/;"	m	class:Lua::Variable
+_Variable	Lua++.hpp	/^	namespace _Variable$/;"	n	namespace:Lua
+_what	Lua++.hpp	/^		string _what;$/;"	m	class:Lua::Exception
+allocCPtr	Lua++.hpp	/^		C_F allocCPtr(F function)$/;"	f	namespace:Lua::Jookia
+arg	Lua++.hpp	/^			struct arg$/;"	s	struct:Lua::State::function_traits
+arity	Lua++.hpp	/^			enum { arity = sizeof...(Args) };$/;"	e	enum:Lua::State::function_traits::__anon2
+class_type	Lua++.hpp	/^			typedef ClassType    class_type;$/;"	t	struct:Lua::State::function_traits
+freeCPtr	Lua++.hpp	/^		bool freeCPtr(C_F function)$/;"	f	namespace:Lua::Jookia
+func	Lua++.hpp	/^			static F func[FUNCS_PER_TYPE];$/;"	m	struct:Lua::Jookia::CPP_FUNCTIONS
+func	Lua++.hpp	/^		F CPP_FUNCTIONS<F>::func[FUNCS_PER_TYPE];$/;"	m	class:Lua::Jookia::CPP_FUNCTIONS
+function_traits	Lua++.hpp	/^		struct function_traits$/;"	s	class:Lua::State
+function_traits	Lua++.hpp	/^		struct function_traits<ReturnType(ClassType::*)(Args...) const>$/;"	s	class:Lua::State
+ipairs	Lua++.hpp	/^	inline std::vector<std::pair<Variable, Variable>> Variable::ipairs()$/;"	f	class:Lua::Variable
+operator !=	Lua++.hpp	/^	inline bool Variable::operator!=(Variable other)$/;"	f	class:Lua::Variable
+operator ()	Lua++.hpp	/^			void operator()(Variable& var, bool& out)$/;"	f	struct:Lua::Extensions::GetValue
+operator ()	Lua++.hpp	/^			void operator()(Variable& var, double& out)$/;"	f	struct:Lua::Extensions::GetValue
+operator ()	Lua++.hpp	/^			void operator()(Variable& var, int& out)$/;"	f	struct:Lua::Extensions::GetValue
+operator ()	Lua++.hpp	/^			void operator()(Variable& var, std::shared_ptr<T>& out)$/;"	f	struct:Lua::Extensions::GetValue
+operator ()	Lua++.hpp	/^			void operator()(Variable& var, string& out)$/;"	f	struct:Lua::Extensions::GetValue
+operator ()	Lua++.hpp	/^	std::vector<Variable> Variable::operator()(Args... args)$/;"	f	class:Lua::Variable
+operator <	Lua++.hpp	/^	inline bool Variable::operator<(Variable other)$/;"	f	class:Lua::Variable
+operator <=	Lua++.hpp	/^	inline bool Variable::operator<=(Variable other)$/;"	f	class:Lua::Variable
+operator =	Lua++.hpp	/^	inline void Variable::operator=(NewTable t)$/;"	f	class:Lua::Variable
+operator =	Lua++.hpp	/^	inline void Variable::operator=(Variable val)$/;"	f	class:Lua::Variable
+operator =	Lua++.hpp	/^	void Variable::operator=(const T& val)$/;"	f	class:Lua::Variable
+operator ==	Lua++.hpp	/^	inline bool Variable::operator==(Variable other)$/;"	f	class:Lua::Variable
+operator >	Lua++.hpp	/^	inline bool Variable::operator>(Variable other)$/;"	f	class:Lua::Variable
+operator >=	Lua++.hpp	/^	inline bool Variable::operator>=(Variable other)$/;"	f	class:Lua::Variable
+operator []	Lua++.hpp	/^		Variable operator[](const string& key)$/;"	f	class:Lua::State
+operator []	Lua++.hpp	/^	Variable Variable::operator[](const T& val)$/;"	f	class:Lua::Variable
+operator lua_State*	Lua++.hpp	/^		operator lua_State* () const$/;"	f	class:Lua::State
+pairs	Lua++.hpp	/^	inline std::vector<std::pair<Variable, Variable>> Variable::pairs()$/;"	f	class:Lua::Variable
+result_type	Lua++.hpp	/^			typedef ReturnType   result_type;$/;"	t	struct:Lua::State::function_traits
+type	Lua++.hpp	/^				typedef typename std::tuple_element<i, std::tuple<Args...>>::type type;$/;"	t	struct:Lua::State::function_traits::arg
+what	Lua++.hpp	/^		const char* what()$/;"	f	class:Lua::Exception
+~Reference	Lua++.hpp	/^		~Reference()$/;"	f	class:Lua::Reference
+~State	Lua++.hpp	/^		~State()$/;"	f	class:Lua::State
+~Variable	Lua++.hpp	/^	inline Variable::~Variable()$/;"	f	class:Lua::Variable

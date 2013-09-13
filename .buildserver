@@ -6,5 +6,4 @@ set -e #make bash halt on error
 cd Projects
 make config=release
 cd -
-# TODO: perform unit tests
 zip build.zip Binaries/Lua++ Source/Lua++.hpp

@@ -1,7 +1,7 @@
 Lua++
 =========
 
-![Build Status](http://vps.arb0c.net/build/LuaPP/state.png)
+![Build Status](http://vps.arb0c.net/build/LuaPP/state.png?wtf=1)
 
 Provides a modern Lua header-only wrapper, utilizing C++11 features and reamining
 as close to Lua's syntax as possible.

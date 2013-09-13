@@ -1,9 +1,8 @@
 #!/bin/bash
-#set -x #make bash echo the commands
+set -x #make bash echo the commands
 
 ./GenerateProject.lua
 cd Projects
-make config=debug
 make config=release
 cd -
-zip build.zip Binaries/*
+zip build.zip Binaries/Lua++ Source/Lua++.hpp

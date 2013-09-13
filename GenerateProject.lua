@@ -19,7 +19,7 @@ local clean_cmd = string.format("%s %s --file=" .. project_file .. " %s", premak
 
 if os.execute(clean_cmd) ~= 0 then -- cleaning failed
 	print("cleaning failed!")
-	return
+--	return
 end
 clean(cleans)
 

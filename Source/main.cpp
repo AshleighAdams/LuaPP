@@ -61,17 +61,21 @@ bool test_error_runtime()
 	return false;
 }
 
+bool failed;
 bool test(const string& what, std::function<bool()> func)
 {
 	if(!func())
+	{
+		failed = true;
 		cout << what << "... failed\n";
+	}
 	else
 		cout << what << "... ok\n";
 }
 
 int test()
 {
-	int failed = false;
+	failed = false;
 	
 	test("Standard libary loads", test_std);
 	test("Variable conversions", test_conversions);

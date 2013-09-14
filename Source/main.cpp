@@ -5,95 +5,82 @@
 #include "Lua++.hpp"
 
 using namespace std;
+using namespace Lua;
 
-class Vector
+// tests
+#define check(_X_) if(!(_X_)) return false
+
+bool test_std()
 {
-public:
-	double X = {}, Y = {}, Z = {};
-	Vector()
-	{
-	}
-	
-	Vector(double x, double y, double z) : X(x), Y(y), Z(z)
-	{
-	}
-	
-	double Length()
-	{
-		return sqrt(X*X+Y*Y+Z*Z);
-	}
-	
-	std::vector<Lua::Variable> LuaLength(Lua::State* state, std::vector<Lua::Variable>& args)
-	{
-		return {{state, Length()}};
-	}
-
-	std::vector<Lua::Variable> LuaNormalize(Lua::State* state, std::vector<Lua::Variable>& args)
-	{
-		auto vec = args[0].As<std::shared_ptr<Vector>>();
-
-		double len = this->Length();
-		X /= len;
-		Y /= len;
-		Z /= len;
-		
-		return {};
-	}
-};
-
-std::vector<Lua::Variable> LuaNewVector(Lua::State* state, std::vector<Lua::Variable>& args)
-{
-	size_t len = args.size();
-	double X, Y, Z;
-	X = Y = Z = 0;
-	
-	if(len >= 1)
-		X = args[0].As<double>();
-	if(len >= 2)
-		Y = args[1].As<double>();
-	if(len >= 3)
-		Z = args[2].As<double>();
-	
-	auto ptr = std::make_shared<Vector>(X, Y, Z);
-	
-	return {state->GeneratePointer(ptr)};
-}
-
-int Add(int a, int b)
-{
-	return a + b;
-}
-
-
-int main(int argc, char** argv)
-{
-	using namespace Lua;
-	
-	cout << sizeof(Variable) << "\n";
-	
 	State state;
 	
+	check(!state["string"].IsNil());
+	check(!state["table"].IsNil());
+	check(!state["debug"].IsNil());
+	check(!state["package"].IsNil());
+	check(!state["math"].IsNil());
+	check(!state["io"].IsNil());
+	check(!state["os"].IsNil());
+	
+	state.LoadStandardLibary();
+	
+	check(state["string"].GetTypeName() == "table");
+	check(state["table"].GetTypeName() == "table");
+	check(state["debug"].GetTypeName() == "table");
+	check(state["package"].GetTypeName() == "table");
+	check(state["math"].GetTypeName() == "table");
+	check(state["io"].GetTypeName() == "table");
+	check(state["os"].GetTypeName() == "table");
+	
+	
+	return true;
+}
+
+bool test_conversions()
+{
+	State state;
+	
+	check(Variable(&state, 5) == Variable(&state, 5));
+	check(Variable(&state, "testing").GetTypeName() == "string");
+	
+	return true;
+}
+
+bool test_error_runtime()
+{
 	try
 	{
-		state.LoadStandardLibary();
-
-		state.GenerateMemberFunction("Length", &Vector::LuaLength);
-		state.GenerateMemberFunction("Normalize", &Vector::LuaNormalize);
-		
-		state["Vector"] = state.GenerateFunction(LuaNewVector);
-		//state["Add"] = state.GenerateFunction<int(int, int)>(Add);
-		
-		assert(Variable(&state, 5) == Variable(&state, 5));
-		
-		state.DoFile("/home/kobra/Dropbox/Projects/Lua++/Projects/test.lua"); 
-		
-		state["TestFunction"]("Hello, Ddrl46");
+		State state;
+		state.DoString("local a, b = 10; return a .. b");
 	}
 	catch(Lua::Exception ex)
 	{
-		cout << "Lua exception: \n" << ex.what() << "\n";
-		return 1;
+		return true;
 	}
 	
-	return 0;
+	return false;
+}
+
+bool test(const string& what, std::function<bool()> func)
+{
+	if(!func())
+		cout << what << "... failed\n";
+	else
+		cout << what << "... ok\n";
+}
+
+int test()
+{
+	int failed = false;
+	
+	test("Standard libary loads", test_std);
+	test("Variable conversions", test_conversions);
+	test("Exceptions on runtime lua", test_error_runtime);
+	
+	return failed ? 1 : 0;
+}
+
+int main(int argc, char** argv)
+{
+	return test();
 }

@@ -6,4 +6,5 @@ set -x #make bash echo the commands
 cd Projects
 make config=release
 cd -
+./Binaries/Lua++
 zip build.zip Binaries/Lua++ Source/Lua++.hpp

@@ -7,4 +7,4 @@ cd Projects
 make config=release
 cd -
 ./Binaries/Lua++
-zip build.zip Binaries/Lua++ Source/Lua++.hpp
+zip build.zip Source/Lua++.hpp

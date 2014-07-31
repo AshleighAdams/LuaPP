@@ -111,6 +111,76 @@ namespace Lua
 		#undef LOOP_FUNC
 	}
 	
+	namespace CppFunction
+	{
+		template <typename T>
+		struct AllowedType
+		{};
+		template <> struct AllowedType<int>
+		{
+			static inline int Get(lua_State* L, int& count)
+			{
+				return lua_tointeger(L, (count--));
+			}
+			static inline void Push(lua_State* L, int value)
+			{
+				lua_pushinteger(L, value);
+			}
+		};
+
+		template <typename Ret>
+		struct MemberFunctionWrapper
+		{
+			template <typename Clazz, typename... Args>
+			struct Wrapper
+			{
+				typedef Ret(Clazz::*Func)(Args...);
+				static int invoke(lua_State* L)
+				{
+					Func func;
+					memcpy(&func, lua_touserdata(L, lua_upvalueindex(1)), sizeof(Func));
+					Clazz* self = static_cast<Clazz*>(lua_touserdata(L, 1));
+					int count = lua_gettop(L);
+					AllowedType<Ret>::Push(L, (self->*func)(AllowedType<Args>::Get(L, count)...));
+					return 1;
+				}
+
+				static bool store(lua_State* L, Func func)
+				{
+					memcpy(lua_newuserdata(L, sizeof(Func)), &func, sizeof(Func));
+					lua_pushcclosure(L, invoke, 1);
+					return true;
+				}
+			};
+
+		};
+		template <>
+		struct MemberFunctionWrapper<void>
+		{
+			template <typename Clazz, typename... Args>
+			struct Wrapper
+			{
+				typedef void (Clazz::*Func)(Args...);
+				static int invoke(lua_State* L)
+				{
+					Func func;
+					memcpy(&func, lua_touserdata(L, lua_upvalueindex(1)), sizeof(Func));
+					Clazz* self = static_cast<Clazz*>(lua_touserdata(L, 1));
+					int count = lua_gettop(L);
+					(self->*func)(AllowedType<Args>::Get(L, count)...);
+					return 0;
+				}
+
+				static bool store(lua_State* L, Func func)
+				{
+					memcpy(lua_newuserdata(L, sizeof(Func)), &func, sizeof(Func));
+					lua_pushcclosure(L, invoke, 1);
+					return true;
+				}
+			};
+		};
+	}
+
 	class Exception : public std::exception
 	{
 		string _what;
@@ -194,6 +264,10 @@ namespace Lua
 		inline Variable(State* state, long long value);
 		inline Variable(State* state, int value);
 		
+		inline Variable(State* state, void* data);
+		template <typename Clazz, typename Ret, typename... Args>
+		static inline Variable FromMemberFunction(State* state, Ret(Clazz::*func)(Args...));
+
 		inline void operator=(Variable val);
 		inline void operator=(NewTable t);
 		template<typename T>
@@ -596,7 +670,6 @@ namespace Lua
 		int argc = 0;
 		_Variable::PushRecursive(*_State, argc, args...);
 		
-		
 		if (lua_pcall(*_State, argc, LUA_MULTRET, 0))
 		{
 			string err = lua_tostring(*_State, -1);
@@ -807,6 +880,26 @@ namespace Lua
 		_Registry = false;
 		
 		Data.Real = (double)value;
+	}
+
+	Variable::Variable(State* state, void* data)
+	{
+		_State = state;
+		_IsReference = true;
+		_Type = Type::UserData;
+		_Global = false;
+		_Registry = false;
+
+		lua_pushlightuserdata(*_State, data);
+		Ref = Reference::FromStack(state);
+	}
+
+	template <typename Clazz, typename Ret, typename... Args>
+	static inline Variable Variable::FromMemberFunction(State* state, Ret (Clazz::*func)(Args...))
+	{
+		CppFunction::MemberFunctionWrapper<Ret>::Wrapper<Clazz, Args...>::store(*state, func);
+
+		return Variable(state);
 	}
 	
 	inline Variable::~Variable()

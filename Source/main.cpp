@@ -76,9 +76,9 @@ bool test_cppfunction()
 	};
 	Class c;
 	State state;
-	Variable i = Variable::FromMemberFunction<Class, int, int, int>(&state, &Class::int_func);
+	Variable i = Variable::FromMemberFunction<Class>(&state, &Class::int_func);
 	check(i(&c, 1, 2)[0] == Variable(&state, 3));
-	Variable v = Variable::FromMemberFunction<Class, void, int, int>(&state, &Class::void_func);
+	Variable v = Variable::FromMemberFunction<Class>(&state, &Class::void_func);
 	check(v(&c, 1, 2).size() == 0);
 	return true;
 }

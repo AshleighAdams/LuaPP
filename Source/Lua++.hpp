@@ -73,7 +73,7 @@ namespace Lua
 					CPP_FUNCTIONS<F>::func[N] = function; \
 					return C_FUNCTION<F, N>; \
 				}
-			LOOP_FUNC(TEST_ALLOC);
+			//LOOP_FUNC(TEST_ALLOC);
 			#undef TEST_ALLOC
 			throw std::runtime_error("No available C functions to use! Increase Lua::FUNCS_PER_TYPE (is at " FUNCS_PER_TYPE_STR ")");
 		}
@@ -90,7 +90,7 @@ namespace Lua
 						return true; \
 					} \
 				}
-			LOOP_FUNC(TEST_FREE);
+			//LOOP_FUNC(TEST_FREE);
 			#undef TEST_FREE
 			return false;
 		}
@@ -111,23 +111,14 @@ namespace Lua
 		#undef LOOP_FUNC
 	}
 	
-	namespace CppFunction
+	namespace Extensions
 	{
 		template <typename T>
 		struct AllowedType
 		{};
-		template <> struct AllowedType<int>
-		{
-			static inline int Get(lua_State* L, int& count)
-			{
-				return lua_tointeger(L, (count--));
-			}
-			static inline void Push(lua_State* L, int value)
-			{
-				lua_pushinteger(L, value);
-			}
-		};
-
+	}
+	namespace CppFunction
+	{
 		template <typename Ret>
 		struct MemberFunctionWrapper
 		{
@@ -141,7 +132,7 @@ namespace Lua
 					memcpy(&func, lua_touserdata(L, lua_upvalueindex(1)), sizeof(Func));
 					Clazz* self = static_cast<Clazz*>(lua_touserdata(L, 1));
 					int count = lua_gettop(L);
-					AllowedType<Ret>::Push(L, (self->*func)(AllowedType<Args>::Get(L, count)...));
+					Extensions::AllowedType<Ret>::Push(L, (self->*func)(Extensions::AllowedType<Args>::GetParameter(L, count)...));
 					return 1;
 				}
 
@@ -167,7 +158,7 @@ namespace Lua
 					memcpy(&func, lua_touserdata(L, lua_upvalueindex(1)), sizeof(Func));
 					Clazz* self = static_cast<Clazz*>(lua_touserdata(L, 1));
 					int count = lua_gettop(L);
-					(self->*func)(AllowedType<Args>::Get(L, count)...);
+					(self->*func)(Extensions::AllowedType<Args>::GetParameter(L, count)...);
 					return 0;
 				}
 
@@ -250,25 +241,38 @@ namespace Lua
 			bool Boolean;
 		} Data;
 		
-	public:
+	protected:
 		inline Variable(State* state);
+		inline void SetAsStack(int index);
+
+	public:
 		inline Variable(State* state, Type type);
-		inline Variable(State* state, lua_CFunction func); // for (int)(*)(lua_State*)
-		inline Variable(State* state, std::function<int(lua_State*)> func); // function<int(lua_State*)>
-		inline Variable(State* state, CFunction func); // function<list<Variable>(list<Variable>&)
+		//inline Variable(State* state, lua_CFunction func); // for (int)(*)(lua_State*)
+		//inline Variable(State* state, std::function<int(lua_State*)> func); // function<int(lua_State*)>
+		//inline Variable(State* state, CFunction func); // function<list<Variable>(list<Variable>&)
 		
-		inline Variable(State* state, const string& value);
-		inline Variable(State* state, const char* value);
-		inline Variable(State* state, bool value);
-		inline Variable(State* state, double value);
-		inline Variable(State* state, long long value);
-		inline Variable(State* state, int value);
+		//inline Variable(State* state, const string& value);
+		//inline Variable(State* state, const char* value);
+		//inline Variable(State* state, bool value);
+		//inline Variable(State* state, double value);
+		//inline Variable(State* state, long long value);
+		//inline Variable(State* state, int value);
 		
-		inline Variable(State* state, void* data);
+
+
+		//inline Variable(State* state, void* func);
+		template <typename T>
+		inline Variable(State* state, const T& value);
+
 		template <typename Clazz, typename Ret, typename... Args>
 		static inline Variable FromMemberFunction(State* state, Ret(Clazz::*func)(Args...));
 
-		inline void operator=(Variable val);
+		static inline Variable FromStack(State* state, int index);
+		static inline Variable FromStack(State* state);
+
+
+	public:
+		inline void operator=(const Variable& val);
 		inline void operator=(NewTable t);
 		template<typename T>
 		void operator=(const T& val);
@@ -277,44 +281,44 @@ namespace Lua
 		template<typename T>
 		Variable operator[](const T& val);
 		
-		bool operator==(Variable other); // from these 2 methods, the rest must be drived
-		bool operator<(Variable other); /// from ...
+		bool operator==(const Variable& other) const; // from these 2 methods, the rest must be drived
+		bool operator<(const Variable& other) const; /// from ...
 		
-		bool operator!=(Variable other);
-		bool operator<=(Variable other);
-		bool operator>(Variable other);
-		bool operator>=(Variable other);
+		bool operator!=(const Variable& other) const;
+		bool operator<=(const Variable& other) const;
+		bool operator>(const Variable& other) const;
+		bool operator>=(const Variable& other) const;
 		
 		inline ~Variable();
 	
 		inline void SetKey(std::shared_ptr<Variable> key, Variable* to);
 		
-		inline Type GetType();
-		inline string GetTypeName();
-		inline void Push();
+		inline Type GetType() const;
+		inline string GetTypeName() const;
+		inline void Push() const;
 		
-		bool IsNil()
+		bool IsNil() const
 		{
 			return _Type == Type::Nil;
 		}
 		
 		template<typename T>
-		T As();
+		T As() const;
 		
 		template<typename T>
-		std::shared_ptr<T> AsPointer();
+		std::shared_ptr<T> AsPointer() const;
 		
 		template<typename T>
-		bool Is();
+		bool Is() const;
 		
-		inline string ToString();
+		inline string ToString() const;
 		
-		inline Variable MetaTable();
-		inline Variable SetMetaTable(Variable tbl);
+		inline Variable MetaTable() const;
+		inline Variable SetMetaTable(const Variable& tbl);
 		
 		// functions
 		template<typename... Args>
-		std::vector<Variable> operator()(Args... args);
+		std::vector<Variable> operator()(Args... args) const;
 		
 		// tables
 		inline std::vector<std::pair<Variable, Variable>> pairs();
@@ -390,7 +394,7 @@ namespace Lua
 		{
 			lua_pushvalue(*this, LUA_REGISTRYINDEX);
 			
-			Variable _r = Variable(this);
+			Variable _r = Variable::FromStack(this);
 			_r._Registry = true;
 			
 			return _r;
@@ -400,81 +404,11 @@ namespace Lua
 		{
 			lua_rawgeti(*this, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS);
 			
-			Variable var = Variable(this);
+			Variable var = Variable::FromStack(this);
 			var._Global = true;
 			
 			return var;
 		}
-		
-		
-		Variable GenerateFunction(CFunction func)
-		{
-			return Variable(this, (CFunction)func);
-		}
-		
-		/*
-		
-		TODO: MESSY!
-		
-		*/
-		
-		Variable GenerateFunction(std::function<void()> func)
-		{
-			CFunction proxy = [this, func](State* state, std::vector<Variable>& args) -> std::vector<Variable>
-			{
-				func();
-				return {};
-			};
-			
-			return Variable(this, (CFunction)proxy);
-		}
-		
-		template<typename T>
-		Variable GenerateFunction(std::function<void(T)> func)
-		{
-			CFunction proxy = [this, func](State* state, std::vector<Variable>& args) -> std::vector<Variable>
-			{
-				T arg_0 = args[0].As<T>();
-				func(arg_0);
-				return {};
-			};
-			
-			return Variable(this, (CFunction)proxy);
-		}
-		
-		template<typename R, typename T>
-		Variable GenerateFunction(std::function<R(T)> func)
-		{
-			CFunction proxy = [this, func](State* state, std::vector<Variable>& args) -> std::vector<Variable>
-			{
-				T arg_0 = args[0].As<T>();
-				R ret = func(arg_0);
-				return {state, ret};
-			};
-			
-			return Variable(this, (CFunction)proxy);
-		}
-		/*
-		template<typename R, typename T1, typename T2>
-		Variable GenerateFunction(std::function<R(T1, T2)> func)
-		{
-			CFunction proxy = [this, func](State* state, std::vector<Variable>& args) -> std::vector<Variable>
-			{
-				T1 arg_0 = args[0].As<T1>();
-				T2 arg_1 = args[1].As<T2>();
-				R ret = func(arg_0, arg_1);
-				return {state, ret};
-			};
-			
-			return Variable(this, (CFunction)proxy);
-		}
-		*/
-		
-		/*
-		
-		END: MEssy
-		
-		*/
 		
 		template <typename T>
 		struct function_traits
@@ -501,36 +435,6 @@ namespace Lua
 			};
 		};
 		
-		
-		//template<typename T>
-		void _GenerateMemberFunction(const string& classname, const string& name, CFunction func)
-		{
-			/* *
-			 * 	local meta = _R[classname]
-			 * 	if meta == nil then
-			 * 		meta = _R[classname] = {}
-			 * 	end
-			 * */
-			
-			Variable var = this->GetRegistry()[classname];
-			
-			if(var.IsNil())
-				var = NewTable();
-			
-			var[name] = this->GenerateFunction(func);
-		}
-		
-		template<typename T>
-		void GenerateMemberFunction(const std::string& name, std::vector<Variable> (T::*f)(State*, std::vector<Variable>&))
-		{
-			_GenerateMemberFunction(typeid(T).name(), name, [f](State* state, std::vector<Variable>& args) -> std::vector<Variable>
-			{
-				std::shared_ptr<T> ptr = args.front().AsPointer<T>();
-				
-				return ((*ptr).*f)(state, args); 
-			}); 
-		}
-		
 		template<typename T>
 		Variable GeneratePointer(std::shared_ptr<T> ptr)
 		{
@@ -555,7 +459,7 @@ namespace Lua
 			std::shared_ptr<T>* internal_ptr = (std::shared_ptr<T>*)lua_newuserdata(_State, sizeof(std::shared_ptr<T>));
 			new (internal_ptr) std::shared_ptr<T>(std::move(ptr));
 			
-			Variable userdata = Variable(this);
+			Variable userdata = Variable(this);// Use FromStack
 			
 			Variable meta = Variable(this, Type::Table);
 			meta["__gc"] = Variable(this, Callback::garbage);
@@ -582,13 +486,11 @@ namespace Lua
 	public:
 		Reference(State* state, int ref) : _State(state), _Ref(ref)
 		{
-			//std::cout << "ref " << _Ref << "\n";
 		}
 		
 		~Reference()
 		{
 			luaL_unref(*_State, LUA_REGISTRYINDEX, _Ref);
-			//std::cout << "unref " << _Ref << "\n";
 		}
 		
 		void Push()
@@ -598,9 +500,7 @@ namespace Lua
 		
 		static std::shared_ptr<Reference> FromStack(State* state)
 		{
-			int ref = luaL_ref(*state, LUA_REGISTRYINDEX);
-			
-			return std::make_shared<Reference>(state, ref);
+			return std::make_shared<Reference>(state, luaL_ref(*state, LUA_REGISTRYINDEX));
 		}
 	};
 	
@@ -656,7 +556,7 @@ namespace Lua
 	}
 	
 	template<typename... Args>
-	std::vector<Variable> Variable::operator()(Args... args)
+	std::vector<Variable> Variable::operator()(Args... args) const
 	{
 		if(GetType() != Type::Function)
 		{
@@ -667,6 +567,7 @@ namespace Lua
 		int top = lua_gettop(*_State);
 		
 		this->Push();
+
 		int argc = 0;
 		_Variable::PushRecursive(*_State, argc, args...);
 		
@@ -687,8 +588,7 @@ namespace Lua
 		
 		while(lua_gettop(*_State) != top)
 		{
-			Variable r(_State);
-			rets.push_back(r);
+			rets.push_back(Variable::FromStack(_State));
 		}
 		
 		std::vector<Variable> flipped;
@@ -699,44 +599,59 @@ namespace Lua
 		
 		return flipped;
 	}
-		
-	inline Variable::Variable(State* state) : _State(state), _Key(nullptr), _KeyTo(nullptr)
+
+	inline Variable::Variable(State* state) :
+		_State(state), _Key(nullptr), _KeyTo(nullptr)
 	{
-		_Type = (Type)lua_type(*_State, -1);
+	}
+	
+	inline void Variable::SetAsStack(int index)
+	{
+		_Type = static_cast<Type>(lua_type(*_State, -1));
 		_IsReference = false;
 		_Global = false;
 		_Registry = false;
 		
-		switch(_Type)
+		switch (_Type)
 		{
 		case Type::Nil:
 			break;
 		case Type::String:
-		{
 			String = lua_tostring(*_State, -1);
 			break;
-		}
 		case Type::Number:
 			Data.Real = lua_tonumber(*_State, -1);
 			break;
 		case Type::Boolean:
-			Data.Boolean = lua_toboolean(*_State, -1);
+			Data.Boolean = lua_toboolean(*_State, -1) != 0;
 			break;
 		case Type::Function:
 		case Type::Table:
 		case Type::UserData:
+		case Type::LightUserData:
+			lua_pushvalue(*_State, index);
 			Ref = Reference::FromStack(_State);
 			_IsReference = true;
 			break;
 		default:
 			throw RuntimeError("The type `" + GetTypeName() + "' hasn't been implimented!");
 		}
-		
-		if(!_IsReference)
-			lua_pop(*_State, 1);
+	}
+
+	inline Variable Variable::FromStack(State* state, int index)
+	{
+		Variable ret(state);
+		ret.SetAsStack(index);
+		return ret;
+	}
+	inline Variable Variable::FromStack(State* state)
+	{
+		Variable ret = FromStack(state, -1);
+		lua_pop(*state, 1);
+		return ret;
 	}
 	
-	inline Variable::Variable(State* state, Type type) : _State(state), _Key(nullptr), _KeyTo(nullptr)
+	inline Variable::Variable(State* state, Type type) : Variable(state)
 	{
 		_Type = type;
 		_IsReference = false;
@@ -759,7 +674,15 @@ namespace Lua
 			break;
 		}
 	}
-	
+
+	template <typename T>
+	inline Variable::Variable(State* state, const T& v) : Variable(state)
+	{
+		Extensions::AllowedType<T>::Push(*state, v);
+		SetAsStack(-1);
+		lua_pop(*state, 1);
+	}
+	/*
 	Variable::Variable(State* state, lua_CFunction func)
 	{
 		_State = state;
@@ -893,13 +816,13 @@ namespace Lua
 		lua_pushlightuserdata(*_State, data);
 		Ref = Reference::FromStack(state);
 	}
-
+	*/
 	template <typename Clazz, typename Ret, typename... Args>
 	static inline Variable Variable::FromMemberFunction(State* state, Ret (Clazz::*func)(Args...))
 	{
 		CppFunction::MemberFunctionWrapper<Ret>::Wrapper<Clazz, Args...>::store(*state, func);
 
-		return Variable(state);
+		return Variable::FromStack(state);
 	}
 	
 	inline Variable::~Variable()
@@ -916,7 +839,7 @@ namespace Lua
 		_KeyTo = to->Ref;
 	}
 	
-	inline string Variable::ToString()
+	inline string Variable::ToString() const
 	{
 		std::stringstream ss;
 		
@@ -925,34 +848,38 @@ namespace Lua
 		case Type::Nil:
 			return "nil";
 		case Type::String:
-			return String;
+			ss << "\"" << String << "\"";
+			return ss.str();
 		case Type::Number:
 			ss << Data.Real;
 			return ss.str();
 		case Type::Boolean:
 			return Data.Boolean ? "true" : "false";
 		case Type::Function:
-			return "function";
+			return "[function]";
 		case Type::Table:
-			return "table";
+			return "[table]";
+		case Type::UserData:
+		case Type::LightUserData:
+			return "[userdata]";
 		default:
 			return "ukn";
 		}
 	}
 	
-	inline Variable Variable::MetaTable()
+	inline Variable Variable::MetaTable() const
 	{
 		this->Push();
 		
 		if(!lua_getmetatable(*_State, -1))
 			return Variable(_State, Type::Nil);
 		
-		Variable ret(_State);
+		Variable ret = Variable::FromStack(_State);
 		assert(ret.GetType() == Type::Table);
 		return ret;
 	}
 	
-	inline Variable Variable::SetMetaTable(Variable tbl)
+	inline Variable Variable::SetMetaTable(const Variable& tbl)
 	{
 		if(tbl.GetType() != Type::Table)
 			throw RuntimeError("SetMetaTable(): argument is not a table!");
@@ -962,8 +889,7 @@ namespace Lua
 		
 		lua_setmetatable(*_State, -2);
 		
-		Variable ret = Variable(_State);
-		return ret;
+		return Variable::FromStack(_State);
 	}
 	
 	inline void Variable::operator=(NewTable t)
@@ -998,7 +924,7 @@ namespace Lua
 		}
 	}
 	
-	inline void Variable::operator=(Variable val)
+	inline void Variable::operator=(const Variable& val)
 	{
 		this->_IsReference = val._IsReference;
 		this->_Type = val._Type;
@@ -1065,7 +991,6 @@ namespace Lua
 		if(GetType() != Type::Table)
 		{
 			throw RuntimeError("Attempted to index '" + _Key->ToString() + "' (a " + GetTypeName() + " value)");
-			return Variable(_State, 0);
 		}
 		
 		std::shared_ptr<Variable> key = std::make_shared<Variable>(_State, val);
@@ -1080,14 +1005,14 @@ namespace Lua
 				
 		lua_gettable(*_State, -2);
 		
-		Variable ret = Variable(_State); // takes it from the stack
+		Variable ret = Variable::FromStack(_State); // takes it from the stack
 		ret.SetKey(key, this);
 		
 		lua_pop(*_State, 1);
 		return ret;
 	}
 	
-	inline bool Variable::operator==(Variable other)
+	inline bool Variable::operator==(const Variable& other) const
 	{
 		try
 		{
@@ -1104,7 +1029,7 @@ namespace Lua
 		}
 	}
 	
-	inline bool Variable::operator<(Variable other)
+	inline bool Variable::operator<(const Variable& other) const
 	{
 		try
 		{
@@ -1121,22 +1046,22 @@ namespace Lua
 		}
 	}
 	
-	inline bool Variable::operator!=(Variable other)
+	inline bool Variable::operator!=(const Variable& other) const
 	{
 		return !operator==(other);
 	}
 	
-	inline bool Variable::operator<=(Variable other)
+	inline bool Variable::operator<=(const Variable& other) const
 	{
 		return operator==(other) || operator<(other);
 	}
 	
-	inline bool Variable::operator>(Variable other)
+	inline bool Variable::operator>(const Variable& other) const
 	{
 		return operator!=(other) && !operator<(other);
 	}
 	
-	inline bool Variable::operator>=(Variable other)
+	inline bool Variable::operator>=(const Variable& other) const
 	{
 		return operator==(other) || operator>(other);
 	}
@@ -1159,9 +1084,9 @@ namespace Lua
 				/* tbl=-3 key=-2, value=-1 */
 				lua_pushvalue(*_State, -2);
 				/* tbl=-4 key=-3, value=-2, key=-1 */
-				Variable key = Variable(_State);
+				Variable key = Variable::FromStack(_State);
 				/* tbl=-3 key=-2, value=-1 */
-				Variable val = Variable(_State);
+				Variable val = Variable::FromStack(_State);
 				/* tbl=-2, key=-1 */
 				
 				ret.push_back({key, val});
@@ -1198,7 +1123,7 @@ namespace Lua
 		return ret;
 	}
 	
-	inline void Variable::Push()
+	inline void Variable::Push() const
 	{
 		switch(_Type)
 		{
@@ -1217,6 +1142,7 @@ namespace Lua
 		case Type::Function:
 		case Type::Table:
 		case Type::UserData:
+		case Type::LightUserData:
 			Ref->Push();
 			break;
 		default:
@@ -1224,27 +1150,24 @@ namespace Lua
 		}
 	}
 	
-	inline Type Variable::GetType()
+	inline Type Variable::GetType() const
 	{
 		return _Type;
 	}
 	
-	inline string Variable::GetTypeName()
+	inline string Variable::GetTypeName() const
 	{
 		return lua_typename(*_State, _Type);
 	}
 	
 	template<typename T>
-	T Variable::As()
+	T Variable::As() const
 	{
-		T ret = T();
-		Extensions::GetValue<Variable&, T&>()(*this, ret);
-		//Extensions::ToCPPType(*this, ret);
-		return ret;
+		return Extensions::AllowedType<T>::GetFromVar(*this);
 	}
 	
 	template<typename T>
-	std::shared_ptr<T> Variable::AsPointer()
+	std::shared_ptr<T> Variable::AsPointer() const
 	{
 		if(_Type != Type::Table)
 		{
@@ -1271,22 +1194,120 @@ namespace Lua
 	}
 	
 	template<typename T>
-	bool Variable::Is()
+	bool Variable::Is() const
 	{
-		try
-		{
-			T ret = T();
-			Extensions::GetValue<Variable&, T&>()(*this, ret);
-			return true;
-		}
-		catch(RuntimeError ex)
-		{
-			return false;
-		}
+		return Extensions::AllowedType<T>::CheckVar(*this);
 	}
 	
 	namespace Extensions
 	{
+		template <>
+		struct AllowedType<int>
+		{
+			static bool GetFromVar(const Variable& var, int& out)
+			{
+				if (var.GetType() == Type::Number)
+				{
+					out = static_cast<int>(var.Data.Real);
+					return true;
+				}
+				return false;
+			}
+			static bool CheckVar(const Variable& var)
+			{
+				return var.GetType() == Type::Number;
+			}
+			static int GetParameter(lua_State* L, int& count)
+			{
+				return lua_tointeger(L, (count--));
+			}
+			static void Push(lua_State* L, int value)
+			{
+				lua_pushinteger(L, value);
+			}
+		};
+
+		template <size_t LEN>
+		struct AllowedType<const char[LEN]>
+		{
+			static bool GetFromVar(const Variable& var, const char*& out)
+			{
+				if (var.GetType() == Type::String)
+				{
+					out = var.String.c_str();
+					return true;
+				}
+				return false;
+			}
+			static bool CheckVar(const Variable& var)
+			{
+				return var.GetType() == Type::String;
+			}
+			static const char* GetParameter(lua_State* L, int& count)
+			{
+				return lua_tostring(L, (count--));
+			}
+			static void Push(lua_State* L, const char* value)
+			{
+				lua_pushstring(L, value);
+			}
+		};
+
+		template <>
+		struct AllowedType<string>
+		{
+			static bool GetFromVar(const Variable& var, string& out)
+			{
+				if (var.GetType() == Type::String)
+				{
+					out = var.String;
+					return true;
+				}
+				return false;
+			}
+			static bool CheckVar(const Variable& var)
+			{
+				return var.GetType() == Type::String;
+			}
+			static string GetParameter(lua_State* L, int& count)
+			{
+				return lua_tostring(L, (count--));
+			}
+			static void Push(lua_State* L, const string& value)
+			{
+				lua_pushstring(L, value.c_str());
+			}
+		};
+
+		template <typename T>
+		struct AllowedType<T*>
+		{
+			static bool GetFromVar(const Variable& var, T*& out)
+			{
+				if (var.GetType() == Type::LightUserData || var.GetType() == Type::UserData)
+				{
+					var.Ref->Push();
+					out = lua_touserdata(*var._State, -1);
+					lua_pop(*var._State, 1);
+					return true;
+				}
+				return false;
+			}
+			static bool CheckVar(const Variable& var)
+			{
+				return var.GetType() == Type::LightUserData || var.GetType() == Type::UserData;
+			}
+			static T* GetParameter(lua_State* L, int& count)
+			{
+				return lua_touserdata(L, (count--));
+			}
+			static void Push(lua_State* L, T* value)
+			{
+				lua_pushlightuserdata(L, value);
+			}
+		};
+
+		/*
 		template<> struct GetValue<Variable&, string&>
 		{
 			void operator()(Variable& var, string& out)
@@ -1361,33 +1382,8 @@ namespace Lua
 				out = *ptr;
 			}
 		};
-		
+		*/
 	}
 }
-
-/*
-if(_Type != Type::Table)
-		{
-			throw RuntimeError(string("AsPointer<") + typeid(T).name() + ">(): variable is not a pointer");
-			return nullptr;
-		}
-		
-		Variable meta = this->MetaTable();
-		
-		
-		if(this->MetaTable()["__typeid"].As<string>() != typeid(T).name())
-		{
-			throw RuntimeError(string("AsPointer<") + typeid(T).name() + ">(): incorrect type!");
-			return nullptr;
-		}
-		
-		this->MetaTable()["__shared_ptr"].Push();
-		std::shared_ptr<T>* ptr = (std::shared_ptr<T>*)lua_touserdata(*_State, -1);
-		
-		assert(ptr);
-		assert(*ptr);
-		
-		return *ptr;
-*/
 
 #endif

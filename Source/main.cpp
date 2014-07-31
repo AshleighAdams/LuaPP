@@ -6,7 +6,6 @@
 
 using namespace std;
 using namespace Lua;
-
 // tests
 #define check(_X_) if(!(_X_)) return false
 
@@ -14,14 +13,14 @@ bool test_std()
 {
 	State state;
 	
-	check(!state["string"].IsNil());
-	check(!state["table"].IsNil());
-	check(!state["debug"].IsNil());
-	check(!state["package"].IsNil());
-	check(!state["math"].IsNil());
-	check(!state["io"].IsNil());
-	check(!state["os"].IsNil());
-	
+	check(state["string"].IsNil());
+	check(state["table"].IsNil());
+	check(state["debug"].IsNil());
+	check(state["package"].IsNil());
+	check(state["math"].IsNil());
+	check(state["io"].IsNil());
+	check(state["os"].IsNil());
+
 	state.LoadStandardLibary();
 	
 	check(state["string"].GetTypeName() == "table");
@@ -61,8 +60,31 @@ bool test_error_runtime()
 	return false;
 }
 
+bool test_cppfunction()
+{
+	class Class
+	{
+	public:
+		void void_func(int a, int b)
+		{
+		}
+		int int_func(int a, int b)
+		{
+			return a + b;
+		}
+		static int lua(lua_State* L) { return 0; }
+	};
+	Class c;
+	State state;
+	Variable i = Variable::FromMemberFunction<Class, int, int, int>(&state, &Class::int_func);
+	check(i(&c, 1, 2)[0] == Variable(&state, 3));
+	Variable v = Variable::FromMemberFunction<Class, void, int, int>(&state, &Class::void_func);
+	check(v(&c, 1, 2).size() == 0);
+	return true;
+}
+
 bool failed;
-bool test(const string& what, std::function<bool()> func)
+void test(const std::string& what, std::function<bool()> func)
 {
 	if(!func())
 	{
@@ -80,6 +102,7 @@ int test()
 	test("Standard libary loads", test_std);
 	test("Variable conversions", test_conversions);
 	test("Exceptions on runtime lua", test_error_runtime);
+	test("C++ function manipulate", test_cppfunction);
 	
 	return failed ? 1 : 0;
 }

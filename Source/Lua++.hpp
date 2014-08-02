@@ -488,12 +488,12 @@ namespace Lua
 		ReturnValue& operator=(const ReturnValue& b) = delete;
 
 	public:
-		int size()
+		int Size()
 		{
 			return s;
 		}
 
-		Variable first()
+		Variable First()
 		{
 			if (s)
 				return Variable::FromStack(state, -s);
@@ -501,7 +501,7 @@ namespace Lua
 				return Variable(state, Type::None);
 		}
 
-		std::vector<Variable> toArray()
+		std::vector<Variable> ToArray()
 		{
 			if (!s)
 			{

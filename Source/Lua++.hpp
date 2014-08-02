@@ -686,6 +686,8 @@ namespace Lua
 		switch(type)
 		{
 		case Type::Function:
+		case Type::LightUserData:
+		case Type::UserData:
 			_IsReference = true;
 			break;
 		case Type::Table:
@@ -764,6 +766,12 @@ namespace Lua
 	
 	inline void Variable::operator=(const LuaTable& t)
 	{
+		if (_KeyTo == nullptr)
+			throw RuntimeError("_KeyTo is null!");
+
+		// clear Ref as soon as possible
+		this->Ref = nullptr;
+
 		Variable tmp(_State, Type::Table);
 		this->_IsReference = tmp._IsReference;
 		this->_Type = tmp._Type;
@@ -780,9 +788,6 @@ namespace Lua
 		}
 		else
 		{
-			if(_KeyTo == nullptr)
-				throw RuntimeError("_KeyTo is null!");
-				
 			_KeyTo->Push();
 			_Key->Push();
 			tmp.Push();
@@ -794,6 +799,12 @@ namespace Lua
 	
 	inline void Variable::operator=(const Variable& val)
 	{
+		if (&val == this) return;
+		if (_KeyTo == nullptr)
+			throw RuntimeError("_KeyTo is null!");
+
+		this->Ref = nullptr;
+
 		this->_IsReference = val._IsReference;
 		this->_Type = val._Type;
 		this->Data = val.Data;
@@ -803,16 +814,12 @@ namespace Lua
 		else if(_IsReference)
 			this->Ref = val.Ref;
 		
-		
 		if(_Global || _Registry)
 		{
 			throw RuntimeError("Variable::operator=() used on global table or register table!");
 		}
 		else
 		{
-			if(_KeyTo == nullptr)
-				throw RuntimeError("_KeyTo is null!");
-				
 			_KeyTo->Push();
 			_Key->Push();
 			this->Push();
@@ -825,15 +832,27 @@ namespace Lua
 	template<typename T>
 	void Variable::operator=(const T& val)
 	{
+		if (_KeyTo == nullptr)
+			throw RuntimeError("_KeyTo is null!");
+
+		this->Ref = nullptr;
+
+		Variable tmp(_State, val);
+		this->_IsReference = tmp._IsReference;
+		this->_Type = tmp._Type;
+		this->Data = tmp.Data;
+
+		if (_Type == Type::String)
+			this->String = tmp.String;
+		else if (_IsReference)
+			this->Ref = tmp.Ref;
+
 		if(_Global || _Registry)
 		{
 			throw RuntimeError("Variable::operator=() used on global table or reference table!");
 		}
 		else
 		{
-			if(_KeyTo == nullptr)
-				throw RuntimeError("_KeyTo is null!");
-			
 			Variable tmp(_State, val);
 			this->_IsReference = tmp._IsReference;
 			this->_Type = tmp._Type;

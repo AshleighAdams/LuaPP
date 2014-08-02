@@ -54,10 +54,13 @@ bool test_conversions()
 {
 	State state;
 	CHECK_STACK;
-	
+
 	check(Variable(&state, 5) == Variable(&state, 5));
 	check(Variable(&state, 5) == 5);
 	check(Variable(&state, "testing").GetTypeName() == "string");
+
+	state["int_value"] = 1;
+	check(state["int_value"] == 1);
 	
 	return true;
 }

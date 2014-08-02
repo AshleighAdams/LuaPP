@@ -125,13 +125,13 @@ bool test_cppfunction()
 	State state;
 	CHECK_STACK;
 	Variable v1 = Variable::FromMemberFunction<Class>(&state, &Class::bool_func);
-	check(v1(&c, 1, 2).first() == true);
+	check(v1(&c, 1, 2).First() == true);
 	Variable v2 = Variable::FromMemberFunction<Class>(&state, &Class::void_func);
-	check(v2(&c, 1, 2).size() == 0);
+	check(v2(&c, 1, 2).Size() == 0);
 	Variable v3 = Variable::FromMemberFunction<Class>(&state, &Class::class_func);
-	check(v3(&c, Class{ 2 }).toArray()[0] == Variable(&state, 3));
+	check(v3(&c, Class{ 2 }).ToArray()[0] == Variable(&state, 3));
 	Variable v4 = Variable::FromFunction(&state, &Class::int_func_s);
-	check(v4(3, 4).first() == true);
+	check(v4(3, 4).First() == true);
 	return true;
 }
 

@@ -60,11 +60,33 @@ bool test_error_runtime()
 	return false;
 }
 
+bool test_cppobject()
+{
+	stringstream s;
+	struct Class
+	{
+		stringstream& s;
+		int value;
+		Class(const Class& b) : s(b.s) { s << "cp"; }
+		Class(stringstream& i) : s(i) { s << "ct"; }
+		~Class() { s << "dt"; }
+	};
+	Lua::State state;
+	{
+		Variable v(&state, Class(s));
+		v.As<Class>().value = 1;
+		check(v.As<Class>().value == 1);
+	}
+	lua_gc(state, LUA_GCCOLLECT, 0);
+	return s.str() == "ctcpdtdt";
+}
+
 bool test_cppfunction()
 {
 	class Class
 	{
 	public:
+		int value;
 		void void_func(int a, int b)
 		{
 		}
@@ -72,14 +94,20 @@ bool test_cppfunction()
 		{
 			return a + b;
 		}
+		int class_func(Class& c)
+		{
+			return c.value + value;
+		}
 		static int lua(lua_State* L) { return 0; }
 	};
-	Class c;
+	Class c{ 1 };
 	State state;
-	Variable i = Variable::FromMemberFunction<Class>(&state, &Class::int_func);
-	check(i(&c, 1, 2)[0] == Variable(&state, 3));
-	Variable v = Variable::FromMemberFunction<Class>(&state, &Class::void_func);
-	check(v(&c, 1, 2).size() == 0);
+	Variable v1 = Variable::FromMemberFunction<Class>(&state, &Class::int_func);
+	check(v1(&c, 1, 2).first() == Variable(&state, 3));
+	Variable v2 = Variable::FromMemberFunction<Class>(&state, &Class::void_func);
+	check(v2(&c, 1, 2).size() == 0);
+	Variable v3 = Variable::FromMemberFunction<Class>(&state, &Class::class_func);
+	check(v3(&c, Class{ 2 }).toArray()[0] == Variable(&state, 3));
 	return true;
 }
 
@@ -102,6 +130,7 @@ int test()
 	test("Standard libary loads", test_std);
 	test("Variable conversions", test_conversions);
 	test("Exceptions on runtime lua", test_error_runtime);
+	test("C++ object manipulate", test_cppobject);
 	test("C++ function manipulate", test_cppfunction);
 	
 	return failed ? 1 : 0;

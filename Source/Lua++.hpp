@@ -195,6 +195,12 @@ namespace Lua
 		bool operator<=(const Variable& other) const;
 		bool operator>(const Variable& other) const;
 		bool operator>=(const Variable& other) const;
+
+		template <typename T>
+		bool operator==(const T& other) const
+		{
+			return *this == Variable(_State, other);
+		}
 		
 		inline ~Variable();
 	
@@ -392,6 +398,11 @@ namespace Lua
 	public:
 		ReturnValue() : state(nullptr), s(0) {}
 		ReturnValue(State* state, int size) : state(state), s(size) {}
+		~ReturnValue()
+		{
+			if (s)
+				lua_pop(*state, s);
+		}
 
 		ReturnValue(const ReturnValue& b) = delete;
 		ReturnValue(ReturnValue&& b) = delete;
@@ -413,6 +424,10 @@ namespace Lua
 
 		std::vector<Variable> toArray()
 		{
+			if (!s)
+			{
+				return {};
+			}
 			std::vector<Variable> ret;
 			ret.reserve(s);
 			int index = -s;
@@ -420,7 +435,6 @@ namespace Lua
 			{
 				ret.push_back(Variable::FromStack(state, index++));
 			}
-			lua_pop(*state, s);
 			return ret;
 		}
 	};

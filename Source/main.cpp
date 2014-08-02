@@ -9,10 +9,25 @@ using namespace Lua;
 // tests
 #define check(_X_) if(!(_X_)) return false
 
+bool stack_error = false;
+struct StackCheck
+{
+	State& s;
+	StackCheck(State& s) : s(s) {}
+	~StackCheck()
+	{
+		if (lua_gettop(s) != 0)
+			stack_error = true;
+	}
+};
+
+#define CHECK_STACK StackCheck _check(state);
+
 bool test_std()
 {
 	State state;
-	
+	CHECK_STACK;
+
 	check(state["string"].IsNil());
 	check(state["table"].IsNil());
 	check(state["debug"].IsNil());
@@ -38,8 +53,10 @@ bool test_std()
 bool test_conversions()
 {
 	State state;
+	CHECK_STACK;
 	
 	check(Variable(&state, 5) == Variable(&state, 5));
+	check(Variable(&state, 5) == 5);
 	check(Variable(&state, "testing").GetTypeName() == "string");
 	
 	return true;
@@ -50,7 +67,7 @@ bool test_error_runtime()
 	try
 	{
 		State state;
-		state.DoString("local a, b = 10; return a .. b");
+		state.DoString("return nil .. 0");
 	}
 	catch(Lua::Exception ex)
 	{
@@ -72,6 +89,7 @@ bool test_cppobject()
 		~Class() { s << "dt"; }
 	};
 	Lua::State state;
+	CHECK_STACK;
 	{
 		Variable v(&state, Class(s));
 		v.As<Class>().value = 1;
@@ -102,6 +120,7 @@ bool test_cppfunction()
 	};
 	Class c{ 1 };
 	State state;
+	CHECK_STACK;
 	Variable v1 = Variable::FromMemberFunction<Class>(&state, &Class::int_func);
 	check(v1(&c, 1, 2).first() == Variable(&state, 3));
 	Variable v2 = Variable::FromMemberFunction<Class>(&state, &Class::void_func);
@@ -120,23 +139,26 @@ void test(const std::string& what, std::function<bool()> func)
 		cout << what << "... failed\n";
 	}
 	else
+	{
 		cout << what << "... ok\n";
+	}
+	if (stack_error)
+	{
+		cout << what << ": stack not cleared\n";
+	}
 }
 
-int test()
+void test()
 {
-	failed = false;
-	
 	test("Standard libary loads", test_std);
 	test("Variable conversions", test_conversions);
 	test("Exceptions on runtime lua", test_error_runtime);
 	test("C++ object manipulate", test_cppobject);
 	test("C++ function manipulate", test_cppfunction);
-	
-	return failed ? 1 : 0;
 }
 
 int main(int argc, char** argv)
 {
-	return test();
+	test();
+	return 0;
 }

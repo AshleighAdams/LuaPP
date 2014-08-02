@@ -29,22 +29,40 @@ namespace Lua
 		template <typename T>
 		struct AllowedType;
 	}
+
+	// TODO too much repetitive code
 	namespace CppFunction
 	{
+		template<int ...>
+		struct seq {};
+
+		template<int N, int ...S>
+		struct gens : gens<N - 1, N - 1, S...> { };
+
+		template<int ...S>
+		struct gens<0, S...> {
+			typedef seq<S...> type;
+		};
+
 		template <typename Ret>
-		struct MemberFunctionWrapper
+		struct FunctionWrapper
 		{
 			template <typename Clazz, typename... Args>
-			struct Wrapper
+			struct Member
 			{
 				typedef Ret(Clazz::*Func)(Args...);
+				template <int... N>
+				static void push(lua_State* L, Clazz* self, Func func, seq<N...>)
+				{
+					Extensions::AllowedType<Ret>::Push(L, (self->*func)(Extensions::AllowedType<Args>::GetParameter(L, N + 2)...));
+				}
 				static int invoke(lua_State* L)
 				{
 					Func func;
 					memcpy(&func, lua_touserdata(L, lua_upvalueindex(1)), sizeof(Func));
 					Clazz* self = static_cast<Clazz*>(lua_touserdata(L, 1));
-					int count = lua_gettop(L);
-					Extensions::AllowedType<Ret>::Push(L, (self->*func)(Extensions::AllowedType<Args>::GetParameter(L, count)...));
+					typedef typename gens<sizeof...(Args)>::type counter;
+					push(L, self, func, counter());
 					return 1;
 				}
 
@@ -56,21 +74,78 @@ namespace Lua
 				}
 			};
 
+			template <typename... Args>
+			struct Static
+			{
+				typedef Ret(*Func)(Args...);
+				template <int... N>
+				static void push(lua_State* L, Func func, seq<N...>)
+				{
+					Extensions::AllowedType<Ret>::Push(L, func(Extensions::AllowedType<Args>::GetParameter(L, N + 1)...));
+				}
+				static int invoke(lua_State* L)
+				{
+					Func func;
+					memcpy(&func, lua_touserdata(L, lua_upvalueindex(1)), sizeof(Func));
+					int count = lua_gettop(L);
+					typedef typename gens<sizeof...(Args)>::type counter;
+					push(L, func, counter());
+					return 1;
+				}
+
+				static bool store(lua_State* L, Func func)
+				{
+					memcpy(lua_newuserdata(L, sizeof(Func)), &func, sizeof(Func));
+					lua_pushcclosure(L, invoke, 1);
+					return true;
+				}
+			};
 		};
 		template <>
-		struct MemberFunctionWrapper<void>
+		struct FunctionWrapper<void>
 		{
 			template <typename Clazz, typename... Args>
-			struct Wrapper
+			struct Member
 			{
 				typedef void (Clazz::*Func)(Args...);
+				template <int... N>
+				static void push(lua_State* L, Clazz* self, Func func, seq<N...>)
+				{
+					(self->*func)(Extensions::AllowedType<Args>::GetParameter(L, N + 2)...);
+				}
 				static int invoke(lua_State* L)
 				{
 					Func func;
 					memcpy(&func, lua_touserdata(L, lua_upvalueindex(1)), sizeof(Func));
 					Clazz* self = static_cast<Clazz*>(lua_touserdata(L, 1));
-					int count = lua_gettop(L);
-					(self->*func)(Extensions::AllowedType<Args>::GetParameter(L, count)...);
+					typedef typename  gens<sizeof...(Args)>::type counter;
+					push(L, self, func, counter());
+					return 0;
+				}
+
+				static bool store(lua_State* L, Func func)
+				{
+					memcpy(lua_newuserdata(L, sizeof(Func)), &func, sizeof(Func));
+					lua_pushcclosure(L, invoke, 1);
+					return true;
+				}
+			};
+
+			template <typename... Args>
+			struct Static
+			{
+				typedef void(*Func)(Args...);
+				template <int... N>
+				static void push(lua_State* L, Func func, seq<N...>)
+				{
+					func(Extensions::AllowedType<Args>::GetParameter(L, N + 1)...);
+				}
+				static int invoke(lua_State* L)
+				{
+					Func func;
+					memcpy(&func, lua_touserdata(L, lua_upvalueindex(1)), sizeof(Func));
+					typedef typename  gens<sizeof...(Args)>::type counter;
+					push(L, func, counter());
 					return 0;
 				}
 
@@ -169,10 +244,13 @@ namespace Lua
 		inline Variable(State* state, Type type);
 
 		template <typename T>
-		inline Variable(State* state, const T& value);
+		Variable(State* state, const T& value);
 
 		template <typename Clazz, typename Ret, typename... Args>
-		static inline Variable FromMemberFunction(State* state, Ret(Clazz::*func)(Args...));
+		static Variable FromMemberFunction(State* state, Ret(Clazz::*func)(Args...));
+
+		template <typename Ret, typename... Args>
+		static Variable FromFunction(State* state, Ret(*func)(Args...));
 
 		static inline Variable FromStack(State* state, int index);
 		static inline Variable FromStack(State* state);
@@ -404,8 +482,9 @@ namespace Lua
 				lua_pop(*state, s);
 		}
 
-		ReturnValue(const ReturnValue& b) = delete;
-		ReturnValue(ReturnValue&& b) = delete;
+		// TODO do we really need these to return ReturnValue from Variable::operator() ?
+		//ReturnValue(const ReturnValue& b) = delete;
+		//ReturnValue(ReturnValue&& b) = delete;
 		ReturnValue& operator=(const ReturnValue& b) = delete;
 
 	public:
@@ -555,12 +634,37 @@ namespace Lua
 		}
 	}
 
+	template <typename T>
+	Variable::Variable(State* state, const T& value) : Variable(state)
+	{
+		Extensions::AllowedType<T>::Push(*state, value);
+		SetAsStack(-1);
+		lua_pop(*state, 1);
+	}
+
+	template <typename Clazz, typename Ret, typename... Args>
+	Variable Variable::FromMemberFunction(State* state, Ret(Clazz::*func)(Args...))
+	{
+		CppFunction::FunctionWrapper<Ret>::template Member<Clazz, Args...>::store(*state, func);
+
+		return Variable::FromStack(state);
+	}
+
+	template <typename Ret, typename... Args>
+	Variable Variable::FromFunction(State* state, Ret(*func)(Args...))
+	{
+		CppFunction::FunctionWrapper<Ret>::template Static<Args...>::store(*state, func);
+
+		return Variable::FromStack(state);
+	}
+
 	inline Variable Variable::FromStack(State* state, int index)
 	{
 		Variable ret(state);
 		ret.SetAsStack(index);
 		return ret;
 	}
+
 	inline Variable Variable::FromStack(State* state)
 	{
 		Variable ret = FromStack(state, -1);
@@ -590,22 +694,6 @@ namespace Lua
 			_IsReference = true;
 			break;
 		}
-	}
-
-	template <typename T>
-	inline Variable::Variable(State* state, const T& v) : Variable(state)
-	{
-		Extensions::AllowedType<T>::Push(*state, v);
-		SetAsStack(-1);
-		lua_pop(*state, 1);
-	}
-	
-	template <typename Clazz, typename Ret, typename... Args>
-	static inline Variable Variable::FromMemberFunction(State* state, Ret (Clazz::*func)(Args...))
-	{
-		CppFunction::MemberFunctionWrapper<Ret>::Wrapper<Clazz, Args...>::store(*state, func);
-
-		return Variable::FromStack(state);
 	}
 	
 	inline Variable::~Variable()
@@ -984,9 +1072,10 @@ namespace Lua
 				lua_settable(L, -3);
 				lua_setmetatable(L, -2);
 			}
-			static std::remove_reference_t<T>& GetParameter(lua_State* L, int& count)
+			typedef typename std::remove_reference<T>::type RemoveReference;
+			static RemoveReference& GetParameter(lua_State* L, int count)
 			{
-				return *static_cast<std::remove_reference_t<T>*>(lua_touserdata(L, (count--)));
+				return *static_cast<RemoveReference*>(lua_touserdata(L, count));
 			}
 		};
 		template <>
@@ -1004,9 +1093,9 @@ namespace Lua
 			{
 				return var.GetType() == Type::Number;
 			}
-			static int GetParameter(lua_State* L, int& count)
+			static int GetParameter(lua_State* L, int count)
 			{
-				return lua_tointeger(L, (count--));
+				return lua_tointeger(L, count);
 			}
 			static void Push(lua_State* L, int value)
 			{
@@ -1014,6 +1103,30 @@ namespace Lua
 			}
 		};
 
+		template <>
+		struct AllowedType<bool>
+		{
+			static bool GetFromVar(const Variable& var)
+			{
+				if (var.GetType() == Type::Boolean)
+				{
+					return var.Data.Boolean;
+				}
+				return false;
+			}
+			static bool CheckVar(const Variable& var)
+			{
+				return var.GetType() == Type::Boolean;
+			}
+			static int GetParameter(lua_State* L, int count)
+			{
+				return lua_toboolean(L, count);
+			}
+			static void Push(lua_State* L, bool value)
+			{
+				lua_pushboolean(L, value);
+			}
+		};
 		template <size_t LEN>
 		struct AllowedType<const char[LEN]>
 		{
@@ -1021,15 +1134,19 @@ namespace Lua
 			{
 				return var.GetType() == Type::String;
 			}
-			static const char* GetParameter(lua_State* L, int& count)
+			static const char* GetParameter(lua_State* L, int count)
 			{
-				return lua_tostring(L, (count--));
+				return lua_tostring(L, count);
 			}
 			static void Push(lua_State* L, const char* value)
 			{
 				lua_pushstring(L, value);
 			}
 		};
+		
+		template <size_t LEN>
+		struct AllowedType<char[LEN]> : public AllowedType<const char[LEN]>
+		{};
 
 		template <>
 		struct AllowedType<const char*>
@@ -1059,9 +1176,9 @@ namespace Lua
 			{
 				return var.GetType() == Type::String;
 			}
-			static string GetParameter(lua_State* L, int& count)
+			static string GetParameter(lua_State* L, int count)
 			{
-				return lua_tostring(L, (count--));
+				return lua_tostring(L, count);
 			}
 			static void Push(lua_State* L, const string& value)
 			{
@@ -1087,9 +1204,9 @@ namespace Lua
 			{
 				return var.GetType() == Type::LightUserData || var.GetType() == Type::UserData;
 			}
-			static T* GetParameter(lua_State* L, int& count)
+			static T* GetParameter(lua_State* L, int count)
 			{
-				return lua_touserdata(L, (count--));
+				return lua_touserdata(L, count);
 			}
 			static void Push(lua_State* L, T* value)
 			{

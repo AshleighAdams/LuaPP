@@ -108,25 +108,30 @@ bool test_cppfunction()
 		void void_func(int a, int b)
 		{
 		}
-		int int_func(int a, int b)
+		bool bool_func(int a, int b)
 		{
-			return a + b;
+			return a == 1 && b == 2;
 		}
 		int class_func(Class& c)
 		{
 			return c.value + value;
 		}
-		static int lua(lua_State* L) { return 0; }
+		static bool int_func_s(int a, int b)
+		{
+			return a == 3 && b == 4;
+		}
 	};
 	Class c{ 1 };
 	State state;
 	CHECK_STACK;
-	Variable v1 = Variable::FromMemberFunction<Class>(&state, &Class::int_func);
-	check(v1(&c, 1, 2).first() == Variable(&state, 3));
+	Variable v1 = Variable::FromMemberFunction<Class>(&state, &Class::bool_func);
+	check(v1(&c, 1, 2).first() == true);
 	Variable v2 = Variable::FromMemberFunction<Class>(&state, &Class::void_func);
 	check(v2(&c, 1, 2).size() == 0);
 	Variable v3 = Variable::FromMemberFunction<Class>(&state, &Class::class_func);
 	check(v3(&c, Class{ 2 }).toArray()[0] == Variable(&state, 3));
+	Variable v4 = Variable::FromFunction(&state, &Class::int_func_s);
+	check(v4(3, 4).first() == true);
 	return true;
 }
 

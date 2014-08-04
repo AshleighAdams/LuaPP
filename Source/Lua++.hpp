@@ -54,7 +54,8 @@ namespace Lua
 				template <int... N>
 				static void push(lua_State* L, Clazz* self, Func func, seq<N...>)
 				{
-					Extensions::AllowedType<Ret>::Push(L, (self->*func)(Extensions::AllowedType<Args>::GetParameter(L, N + 2)...));
+					Extensions::AllowedType<std::remove_reference<Ret>::type>::Push(L, 
+						(self->*func)(Extensions::AllowedType<typename std::remove_reference<Args>::type>::GetParameter(L, N + 2)...));
 				}
 				static int invoke(lua_State* L)
 				{
@@ -81,7 +82,8 @@ namespace Lua
 				template <int... N>
 				static void push(lua_State* L, Func func, seq<N...>)
 				{
-					Extensions::AllowedType<Ret>::Push(L, func(Extensions::AllowedType<Args>::GetParameter(L, N + 1)...));
+					Extensions::AllowedType<std::remove_reference<Ret>::type>::Push(L,
+						func(Extensions::AllowedType<typename std::remove_reference<Args>::type>::GetParameter(L, N + 1)...));
 				}
 				static int invoke(lua_State* L)
 				{
@@ -111,7 +113,7 @@ namespace Lua
 				template <int... N>
 				static void push(lua_State* L, Clazz* self, Func func, seq<N...>)
 				{
-					(self->*func)(Extensions::AllowedType<Args>::GetParameter(L, N + 2)...);
+					(self->*func)(Extensions::AllowedType<typename std::remove_reference<Args>::type>::GetParameter(L, N + 2)...);
 				}
 				static int invoke(lua_State* L)
 				{
@@ -138,7 +140,7 @@ namespace Lua
 				template <int... N>
 				static void push(lua_State* L, Func func, seq<N...>)
 				{
-					func(Extensions::AllowedType<Args>::GetParameter(L, N + 1)...);
+					func(Extensions::AllowedType<typename std::remove_reference<Args>::type>::GetParameter(L, N + 1)...);
 				}
 				static int invoke(lua_State* L)
 				{
@@ -306,7 +308,7 @@ namespace Lua
 		
 		// functions
 		template<typename... Args>
-		ReturnValue operator()(Args... args) const;
+		ReturnValue operator()(Args&&... args) const;
 		
 		// tables
 		inline std::vector<std::pair<Variable, Variable>> pairs();
@@ -536,10 +538,10 @@ namespace Lua
 		}
 		
 		template<typename T>
-		void PushRecursive(State& state, int& argc, T arg)
+		void PushRecursive(State& state, int& argc, T&& arg)
 		{
 			argc++;
-			Extensions::AllowedType<T>::Push(state, arg);
+			Extensions::AllowedType<typename std::remove_reference<T>::type>::Push(state, std::forward<T>(arg));
 			//Variable var(&state, arg);
 			//
 			//var.Push();
@@ -551,21 +553,21 @@ namespace Lua
 		}
 		
 		template<typename T, typename... Args>
-		void PushRecursive(State& state, int& argc, T arg, Args... args)
+		void PushRecursive(State& state, int& argc, T&& arg, Args&&... args)
 		{
-			PushRecursive(state, argc, arg);
-			PushRecursive(state, argc, args...);
+			PushRecursive(state, argc, std::forward<T>(arg));
+			PushRecursive(state, argc, std::forward<Args>(args)...);
 		}
 		
 		template<typename... Args>
-		void PushRecursive(State& state, int& argc, Args... args)
+		void PushRecursive(State& state, int& argc, Args&&... args)
 		{
-			PushRecursive(state, argc, args...);
+			PushRecursive(state, argc, std::forward<Args>(args)...);
 		}
 	}
 	
 	template<typename... Args>
-	ReturnValue Variable::operator()(Args... args) const
+	ReturnValue Variable::operator()(Args&&... args) const
 	{
 		if(GetType() != Type::Function)
 		{
@@ -577,7 +579,7 @@ namespace Lua
 		this->Push();
 
 		int argc = 0;
-		_Variable::PushRecursive(*_State, argc, args...);
+		_Variable::PushRecursive(*_State, argc, std::forward<Args>(args)...);
 		
 		if (lua_pcall(*_State, argc, LUA_MULTRET, 0))
 		{
@@ -637,7 +639,7 @@ namespace Lua
 	template <typename T>
 	Variable::Variable(State* state, const T& value) : Variable(state)
 	{
-		Extensions::AllowedType<T>::Push(*state, value);
+		Extensions::AllowedType<typename std::remove_reference<T>::type>::Push(*state, value);
 		SetAsStack(-1);
 		lua_pop(*state, 1);
 	}
@@ -1091,10 +1093,10 @@ namespace Lua
 				lua_settable(L, -3);
 				lua_setmetatable(L, -2);
 			}
-			typedef typename std::remove_reference<T>::type RemoveReference;
-			static RemoveReference& GetParameter(lua_State* L, int count)
+
+			static T& GetParameter(lua_State* L, int count)
 			{
-				return *static_cast<RemoveReference*>(lua_touserdata(L, count));
+				return *static_cast<T*>(lua_touserdata(L, count));
 			}
 		};
 		template <>

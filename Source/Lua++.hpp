@@ -54,7 +54,7 @@ namespace Lua
 				template <int... N>
 				static void push(lua_State* L, Clazz* self, Func func, seq<N...>)
 				{
-					Extensions::AllowedType<std::remove_reference<Ret>::type>::Push(L, 
+					Extensions::AllowedType<typename std::remove_reference<Ret>::type>::Push(L, 
 						(self->*func)(Extensions::AllowedType<typename std::remove_reference<Args>::type>::GetParameter(L, N + 2)...));
 				}
 				static int invoke(lua_State* L)
@@ -82,7 +82,7 @@ namespace Lua
 				template <int... N>
 				static void push(lua_State* L, Func func, seq<N...>)
 				{
-					Extensions::AllowedType<std::remove_reference<Ret>::type>::Push(L,
+					Extensions::AllowedType<typename std::remove_reference<Ret>::type>::Push(L,
 						func(Extensions::AllowedType<typename std::remove_reference<Args>::type>::GetParameter(L, N + 1)...));
 				}
 				static int invoke(lua_State* L)
@@ -277,10 +277,7 @@ namespace Lua
 		bool operator>=(const Variable& other) const;
 
 		template <typename T>
-		bool operator==(const T& other) const
-		{
-			return *this == Variable(_State, other);
-		}
+		bool operator==(const T& other) const;
 		
 		inline ~Variable();
 	
@@ -542,9 +539,6 @@ namespace Lua
 		{
 			argc++;
 			Extensions::AllowedType<typename std::remove_reference<T>::type>::Push(state, std::forward<T>(arg));
-			//Variable var(&state, arg);
-			//
-			//var.Push();
 		}
 		
 		inline void PushRecursive(State& state, int& argc)
@@ -590,7 +584,7 @@ namespace Lua
 		}
 		
 		int ret = lua_gettop(*_State) - top;
-		if (ret) // no returns
+		if (ret)
 			return ReturnValue(_State, ret);
 		else
 			return ReturnValue();
@@ -952,6 +946,24 @@ namespace Lua
 	inline bool Variable::operator>=(const Variable& other) const
 	{
 		return operator==(other) || operator>(other);
+	}
+
+	template <typename T>
+	bool Variable::operator==(const T& other) const
+	{
+		try
+		{
+			Extensions::AllowedType<T>::Push(*_State, other);
+			this->Push();
+			bool ret = lua_compare(*_State, -2, -1, LUA_OPEQ) == 1;
+			lua_pop(*_State, 2);
+			return ret;
+		}
+		catch (...)
+		{
+			lua_pop(*_State, 2);
+			throw;
+		}
 	}
 	
 	inline std::vector<std::pair<Variable, Variable>> Variable::pairs()
